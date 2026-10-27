@@ -532,3 +532,52 @@ test("the replay list marks the open recording", async (t) => {
     await page.close();
   }
 });
+
+test("local recording controls preserve the original problem reading space", async (t) => {
+  if (!browser) return t.skip("playwright chromium unavailable");
+  for (const [width, height, fontFamily] of [
+    [1280, 720, null],
+    [1280, 720, "Verdana, sans-serif"],
+    [390, 844, null],
+    [390, 844, "Verdana, sans-serif"],
+  ]) {
+    const page = await openInterview(width, height);
+    try {
+      await closeSetupCheck(page);
+      await page.evaluate((fontFamily) => {
+        document.body.style.fontFamily = fontFamily || "";
+      }, fontFamily);
+      const sizes = await page.evaluate(() => {
+        const panel = document.querySelector("#local-recording");
+        const height = () =>
+          document.querySelector("#problem-panel").getBoundingClientRect()
+            .height;
+        const idle = height();
+        panel.hidden = true;
+        const original = height();
+        panel.hidden = false;
+        panel.querySelector("[data-local-start]").hidden = true;
+        const stop = panel.querySelector("[data-local-stop]");
+        stop.hidden = false;
+        stop.textContent = "End recording 00:05";
+        return { original, idle, recording: height() };
+      });
+      assert.ok(
+        sizes.original > 0,
+        JSON.stringify({ width, fontFamily, ...sizes }),
+      );
+      assert.equal(
+        sizes.idle,
+        sizes.original,
+        JSON.stringify({ width, fontFamily, ...sizes }),
+      );
+      assert.equal(
+        sizes.recording,
+        sizes.original,
+        JSON.stringify({ width, fontFamily, ...sizes }),
+      );
+    } finally {
+      await page.close();
+    }
+  }
+});

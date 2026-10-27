@@ -1342,6 +1342,7 @@ test("skip waits for agent acknowledgement before disconnecting", async () => {
       stopEndingClock() {},
       stopAvatar() {},
       stopLocalMedia() {},
+      localRecording: { stop: async () => {} },
       beforeUnloadGuard: { dispose() {} },
       reportRecovery: {
         stop: () => events.push("stop-recovery"),
@@ -1396,6 +1397,24 @@ test("skip waits for agent acknowledgement before disconnecting", async () => {
     page.acknowledge();
     await leaving;
     assert.equal(page.events.filter((e) => e === "disconnect").length, 1);
+    assert.equal(page.scope.window.location.href, "/");
+  }
+
+  // The acknowledged exit still owes any recording's final chunks.
+  {
+    const page = setup();
+    let finishRecording;
+    page.scope.localRecording.stop = () =>
+      new Promise((resolve) => (finishRecording = resolve));
+    let left = false;
+    const leaving = page.skipReport().then(() => (left = true));
+    await page.settle();
+    page.acknowledge();
+    await page.settle();
+    assert.equal(left, false);
+    assert.equal(page.scope.window.location.href, "/interview");
+    finishRecording();
+    await leaving;
     assert.equal(page.scope.window.location.href, "/");
   }
 

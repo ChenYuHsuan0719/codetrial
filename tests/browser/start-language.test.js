@@ -4,6 +4,7 @@ import {
   DEFAULT_RUNTIME_CONFIG,
   launchChromium,
   FAKE_SPEECH_CAPTURE,
+  pauseClock,
   startStaticServer,
 } from "./source.js";
 import { LANGUAGE_KEY } from "../../web/lib.js";
@@ -43,7 +44,10 @@ after(async () => {
 /// enough for the page to count the interview as started, not to join a room.
 /// `within` bounds only the wait from the Start press to the token request;
 /// the preflight before it keeps the page's own timeout.
-async function joinAndCaptureToken(page, { granted = false, within } = {}) {
+async function joinAndCaptureToken(
+  page,
+  { granted = false, within, pauseJudge = false } = {},
+) {
   await page.route("**/api/token", (route) =>
     route.fulfill(
       granted
@@ -62,13 +66,15 @@ async function joinAndCaptureToken(page, { granted = false, within } = {}) {
   await page.waitForFunction(
     () => !document.querySelector("#audio-check-join").disabled,
   );
+  if (pauseJudge) await pauseClock(page);
   const sent = page.waitForRequest(
     (request) => request.url().endsWith("/api/token"),
     { timeout: within },
   );
+  // The judge may be held; the token, rather than page load, marks completion.
   const [request] = await Promise.all([
     sent,
-    page.locator("#audio-check-join").click(),
+    page.locator("#audio-check-join").click({ noWaitAfter: true }),
   ]);
   return request;
 }
@@ -85,6 +91,7 @@ const interviewReady = (page) =>
 test("the token names a requested C whose judge loads after Start", async (t) => {
   if (!browser) return t.skip("playwright chromium unavailable");
   const page = await browser.newPage();
+  await page.clock.install();
   let releaseJudge = () => {};
   try {
     const held = new Promise((resolve) => {
@@ -102,16 +109,20 @@ test("the token names a requested C whose judge loads after Start", async (t) =>
     page.on("request", (request) => {
       if (request.url().endsWith("/api/token")) tokenSent = true;
     });
-    const request = joinAndCaptureToken(page);
+    // The held judge must not race the real-time fallback on a loaded runner.
+    const request = joinAndCaptureToken(page, { pauseJudge: true });
     await page.waitForFunction(
       () => document.querySelector("#audio-check").hidden,
     );
     assert.equal(tokenSent, false, "the token waits for the judge");
     releaseJudge();
     assert.equal((await request).postDataJSON().language, "c");
+    await page.clock.resume();
     // The token was refused, so no interview started in C.
-    await page.waitForFunction(
-      () => !document.querySelector("#audio-check-join").disabled,
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#transcript-panel")
+        .textContent.includes("Offline mode is ready"),
     );
     assert.equal(
       await page.evaluate((key) => localStorage.getItem(key), LANGUAGE_KEY),

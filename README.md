@@ -181,8 +181,28 @@ with tab audio enabled. Meet owns the shared tab after that, and face-presence
 analysis is disabled for the session. See the
 [manual check](docs/meet-tab-audio-manual-check.md) for the supported flow.
 
-To record a practice interview without Meet, tick "I am recording this
-interview with a screen recorder" in the media preflight, then capture the
+To use the built-in local recorder in Chrome or Chromium, select Start & record
+in the media preflight to include Jim's opening, or Start recording during the
+interview. Choose the CodeTrial tab and enable Share tab audio. The recorder
+mixes that audio with the existing interview microphone; End recording saves a
+WebM for local download. While recording, the existing self view appears
+automatically when the camera is on and ready and Meet presentation is off.
+The screen-recorder checkbox is not needed for this path.
+
+In offline practice, stopping a recording also releases the microphone.
+Starting another recording requests the same input after tab sharing is
+allowed, falling back to the default if that device is no longer available.
+If recording fails, download any available partial recording. An undownloaded
+partial stays available during a retry until another take is ready.
+
+Local recording targets 1 Mbps video and 128 kbps audio, about 760 MB for
+90 minutes before container overhead. These are encoder targets, not hard
+limits; actual size and memory use vary with the browser and captured content.
+The recording stays in tab memory until saved, so shorter recordings reduce
+memory use.
+
+For an external screen recorder, tick "I am recording this interview with a
+screen recorder" in the media preflight, then capture the
 screen and system audio with any screen recorder, such as OBS or Clipchamp, and
 leave the recorder's own camera off. While the camera is on and ready, the
 interview page then shows it below Jim, so the screen capture already includes
@@ -192,8 +212,8 @@ the right way round in the file. Turning the recorder's camera on as well is
 what fails: on Windows a second application usually cannot open a camera the
 browser already holds, and the preflight camera check then cannot pass. Select
 the microphone in the recorder too, since the page never plays the candidate's
-voice back and system audio carries only Jim. Without the tick the interview
-page shows no self view.
+voice back and system audio carries only Jim. Without the tick or an active
+local recording, the interview page shows no self view.
 
 The lobby offers 30, 45, and 60 minutes and the endpoints accept 10 to 90.
 Recording lowers that ceiling to `CODETRIAL_RECORDING_MAX_MINUTES`, and the

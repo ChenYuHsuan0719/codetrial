@@ -46,7 +46,8 @@ done
 # count alone does not say which assertion broke.
 logs=$(mktemp -d)
 pids=""
-# shellcheck disable=SC2086,SC2317
+# ShellCheck cannot follow cleanup through the EXIT trap.
+# shellcheck disable=SC2086,SC2317,SC2329
 cleanup()
 {
     [ -z "$pids" ] || kill $pids 2> /dev/null
