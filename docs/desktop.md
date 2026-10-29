@@ -21,7 +21,7 @@ A child process rather than a library call, because the server's startup lives
 in `src/main.rs` (config search, the Setup handover, every refusal it makes
 before serving) and moving that into the library would have been a rewrite of
 the file the CLI's behavior is pinned to. As a child it is the binary the CLI
-tests already cover, started with four things a launcher needs that the CLI
+tests already cover, started with five things a launcher needs that the CLI
 did not have. Each is decided in the server, so the app keeps no copy of the
 server's rules:
 
@@ -68,9 +68,14 @@ server's rules:
   quitting or by crashing, the server goes too and does not keep the port.
   This one stays in the environment even for `--data-dir`, because it is not
   configuration but a description of the pipe the launcher handed over.
+- `--no-update-check`: the lobby never offers a newer release, whatever the
+  config file says about `CODETRIAL_UPDATE_CHECK`. That check compares the
+  server with the `latest` release, and the app is published as
+  `desktop-latest`, so it would offer every desktop install an update to the
+  CLI binary.
 
-All four are ordinary server options, and a CLI install can use them the same
-way. `codetrial --help` lists the three flags, and the README's configuration
+All five are ordinary server options, and a CLI install can use them the same
+way. `codetrial --help` lists the four flags, and the README's configuration
 table lists `CODETRIAL_ALLOWED_HOSTS`.
 
 ## Where it keeps things

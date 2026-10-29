@@ -34,9 +34,31 @@
         </div>
       </header>
 
+      <aside
+        id="update-notice"
+        class="update-notice"
+        aria-labelledby="update-notice-title"
+        hidden
+      >
+        <h2 id="update-notice-title">A newer CodeTrial build is available</h2>
+        <p id="update-notice-text" role="status"></p>
+        <div class="update-notice-actions">
+          <a
+            id="update-notice-link"
+            class="update-notice-download"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Open the latest release</a
+          >
+          <button id="update-notice-dismiss" type="button">Dismiss</button>
+        </div>
+      </aside>
+
       <section class="practice-hero" aria-labelledby="practice-title">
         <span class="practice-badge">Voice AI mock interviews</span>
-        <h1 id="practice-title">Practice a live technical interview</h1>
+        <h1 id="practice-title" tabindex="-1">
+          Practice a live technical interview
+        </h1>
         <p class="practice-lead">
           Talk through your solution with Jim, your AI interviewer, while you
           code. Feedback on every phase arrives when the session ends.

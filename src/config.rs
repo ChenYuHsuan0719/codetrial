@@ -84,6 +84,11 @@ pub const DEFAULT_COMPILER_EXPLORER_ENABLED: bool = true;
 pub const DEFAULT_GEMINI_CANDIDATE_VIDEO_ENABLED: bool = false;
 /// Guest interviews require explicit operator opt-in.
 pub const DEFAULT_GUEST_MODE_ENABLED: bool = false;
+/// The update notice asks GitHub about the `latest` release while a lobby is
+/// open, with nobody signing in and no account on the request, where GitHub
+/// sign-in reaches GitHub only for a candidate who signs in. So it waits to be
+/// asked for.
+pub const DEFAULT_UPDATE_CHECK: bool = false;
 /// Off until measured in real interviews: a short spoken acknowledgement
 /// played while a tool round holds the reply back. See `gemini::tool_ack_clip`.
 pub const DEFAULT_GEMINI_TOOL_ACK: bool = false;
@@ -657,6 +662,22 @@ pub fn exit_with_stdin(value: Option<&str>) -> bool {
 
 pub fn gemini_candidate_video_enabled(value: Option<&str>) -> bool {
     parse_bool(value, DEFAULT_GEMINI_CANDIDATE_VIDEO_ENABLED)
+}
+
+/// The commit `CODETRIAL_UPDATE_CHECK` compares against the `latest` release,
+/// or `None` when nothing is compared: the setting is off, the binary was not
+/// built by CI (`release_commit` is empty, see `CODETRIAL_RELEASE_COMMIT` in
+/// build.rs), or it is not the macOS build, the only one the notice is for.
+///
+/// The platform is an argument rather than a `cfg!` here so the rule can be
+/// tested on the Linux runners that run the suite.
+pub fn update_check_commit(
+    value: Option<&str>,
+    release_commit: &str,
+    macos: bool,
+) -> Option<String> {
+    (parse_bool(value, DEFAULT_UPDATE_CHECK) && macos && !release_commit.is_empty())
+        .then(|| release_commit.to_string())
 }
 
 /// Production recording, or its absence.

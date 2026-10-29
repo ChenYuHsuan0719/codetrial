@@ -687,7 +687,7 @@ const GITHUB_BODY_LIMIT: usize = 1 << 20;
 /// bounds what one sign-in writes, without second-guessing GitHub's rules.
 const GITHUB_LOGIN_LIMIT: usize = 255;
 
-async fn github_json(request: reqwest::RequestBuilder) -> GitHubResult<Value> {
+pub(super) async fn github_json(request: reqwest::RequestBuilder) -> GitHubResult<Value> {
     let mut response = request.send().await?;
 
     // Redirects are not followed, so a 307 arrives here alongside every 4xx and

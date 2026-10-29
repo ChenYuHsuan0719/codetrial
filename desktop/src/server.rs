@@ -103,7 +103,10 @@ fn command(launch: &Launch) -> Command {
         .arg("--web-addr")
         .arg(&launch.addr)
         .arg("--allowed-hosts")
-        .arg(&launch.addr);
+        .arg(&launch.addr)
+        // The app is published as `desktop-latest`, and the update check reads
+        // `latest`, which never names the server inside it.
+        .arg("--no-update-check");
     if let Some(path) = &launch.import_config {
         command.arg("--import-config").arg(path);
     }

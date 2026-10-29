@@ -62,6 +62,7 @@ import {
 } from "./editor-options.js";
 
 import { readStored, storageArea, writeStored } from "./audio-output.js";
+import { mountUpdateNotice } from "./update-notice.js";
 import {
   PRACTICE_LIST_KEY,
   parsePracticeList,
@@ -932,6 +933,8 @@ window.addEventListener("pageshow", (event) => {
   // out did not happen, and a latch left set here disables the button for good.
   starting = false;
   refreshHistory();
+  // Coming back to the lobby this way is the same moment as loading it.
+  void updateNotice.refresh();
 });
 
 nodes.githubLogin.addEventListener("keydown", (event) => {
@@ -2673,3 +2676,6 @@ function select(selector, chosen) {
 }
 
 mountProblemGrid();
+
+const updateNotice = mountUpdateNotice({ fetchJson, readStored, writeStored });
+void updateNotice.refresh();

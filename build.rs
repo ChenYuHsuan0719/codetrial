@@ -26,6 +26,11 @@ fn main() {
 /// local builds use HEAD, and source archives without either say `unknown`.
 /// Both are seven characters wide, because `--short` alone follows
 /// `core.abbrev`, and a setting below seven would fail `hex_sha`.
+///
+/// `CODETRIAL_RELEASE_COMMIT` is the same commit when CI supplied it, and empty
+/// otherwise. Only a CI build can be the `latest` release, so the update notice
+/// compares that one and nothing else: a local build's HEAD is usually a commit
+/// the release will never name, and it would be offered an update forever.
 fn set_build_commit() {
     println!("cargo:rerun-if-env-changed=GITHUB_SHA");
     let root = std::env::var_os("CARGO_MANIFEST_DIR")
@@ -35,9 +40,11 @@ fn set_build_commit() {
         watch_git_head(root);
     }
 
-    let commit = std::env::var("GITHUB_SHA")
+    let released = std::env::var("GITHUB_SHA")
         .ok()
-        .and_then(|sha| hex_sha(&sha).map(|sha| sha[..7].to_ascii_lowercase()))
+        .and_then(|sha| hex_sha(&sha).map(|sha| sha[..7].to_ascii_lowercase()));
+    let commit = released
+        .clone()
         .or_else(|| {
             root.as_deref()
                 .and_then(|root| git_output(root, &["rev-parse", "--short=7", "HEAD"]))
@@ -45,6 +52,10 @@ fn set_build_commit() {
         })
         .unwrap_or_else(|| "unknown".to_string());
     println!("cargo:rustc-env=CODETRIAL_BUILD_COMMIT={commit}");
+    println!(
+        "cargo:rustc-env=CODETRIAL_RELEASE_COMMIT={}",
+        released.unwrap_or_default()
+    );
 }
 
 fn hex_sha(sha: &str) -> Option<&str> {

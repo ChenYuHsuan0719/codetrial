@@ -36,6 +36,7 @@ fn config_with(ids: &[&str]) -> WebServerConfig {
         allowed_hosts: Vec::new(),
         recording: None,
         probe_provider_quota: false,
+        update_check_commit: None,
         pool: ProviderPool {
             providers: ids
                 .iter()

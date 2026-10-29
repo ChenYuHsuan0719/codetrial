@@ -297,6 +297,7 @@ fn router_routes_match_a_fixed_allowlist() {
         "/api/github/device/poll",
         "/api/session",
         "/api/logout",
+        "/api/update",
         "/api/recordings",
         "/api/recordings/{id}",
         "/api/recordings/{id}/events",
@@ -394,6 +395,9 @@ async fn every_owner_scoped_route_refuses_an_anonymous_request() {
         "/api/github/device/poll",
         "/api/session",
         "/api/logout",
+        // Two commits, both public, and an answer cached for every caller, so
+        // asking without a session cannot make the server ask GitHub more.
+        "/api/update",
         "/runtime-config.js",
         codetrial::recording::WEBHOOK_ROUTE,
         codetrial::recording::REPLAY_ROUTE,
