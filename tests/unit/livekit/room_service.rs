@@ -32,9 +32,9 @@ struct RoomService {
 impl RoomService {
     async fn start(status: u16, reply: &'static str) -> Self {
         let seen = Arc::new(Mutex::new(Vec::new()));
-        let recorded = seen.clone();
+        let recorded = Arc::clone(&seen);
         let app = Router::new().fallback(move |uri: Uri, headers: HeaderMap, body: String| {
-            let recorded = recorded.clone();
+            let recorded = Arc::clone(&recorded);
             async move {
                 recorded.lock().unwrap().push(Seen {
                     path: uri.path().to_string(),

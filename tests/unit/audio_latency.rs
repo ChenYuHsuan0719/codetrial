@@ -122,7 +122,7 @@ async fn teardown_errors_preserve_samples_and_attempt_every_operation() {
     let rooms: Vec<_> = (0..2)
         .map(|id| TestRoom {
             saved: Some(path.clone()),
-            calls: calls.clone(),
+            calls: std::sync::Arc::clone(&calls),
             id,
             fail_unpublish: id == 0,
             fail_close: true,
@@ -177,7 +177,7 @@ async fn save_and_setup_failures_still_close_connected_rooms() {
     let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let room = TestRoom {
         saved: None,
-        calls: calls.clone(),
+        calls: std::sync::Arc::clone(&calls),
         id: 0,
         fail_unpublish: false,
         fail_close: false,
@@ -203,7 +203,7 @@ async fn stalled_unpublishes_are_bounded_and_do_not_skip_close() {
     let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let room = TestRoom {
         saved: None,
-        calls: calls.clone(),
+        calls: std::sync::Arc::clone(&calls),
         id: 0,
         fail_unpublish: false,
         fail_close: false,

@@ -233,7 +233,7 @@ pub(crate) async fn end_interview_handler(
         return StatusCode::NO_CONTENT.into_response();
     };
     let found = {
-        let accounts = accounts.clone();
+        let accounts = std::sync::Arc::clone(&accounts);
         let interview_id = interview_id.clone();
         blocking(move || {
             crate::recording::recording_for_interview(&accounts, &interview_id, user.id)

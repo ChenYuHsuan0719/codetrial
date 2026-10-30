@@ -116,7 +116,7 @@ async fn a_fixed_room_name_pins_the_provider_it_names() {
 async fn a_late_provider_failure_does_not_fail_a_queued_recording() {
     let provider = std::sync::Arc::new(FakeRecordingProvider::default());
     let (base, server, path, client, cookie) =
-        recorded_server_with_provider("late-failure", provider.clone()).await;
+        recorded_server_with_provider("late-failure", std::sync::Arc::clone(&provider)).await;
     let interview = start_interview(&client, &base, &cookie).await;
     assert_eq!(
         client

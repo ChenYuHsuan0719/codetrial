@@ -1,4 +1,8 @@
-#![allow(clippy::panic, clippy::unwrap_used)] // see [lints.clippy] in Cargo.toml
+#![expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "a test that fails by panicking is working as intended"
+)]
 
 //! The provider contract, checked against bytes rather than against prose.
 //!
@@ -153,7 +157,10 @@ fn contract_start_egress_sends_only_keys_the_decoder_binds() {
 // `audio_quality` and `video_quality` are deprecated upstream. They are named
 // only because the destructure is exhaustive, and naming them is the point:
 // this body must not start sending them.
-#[allow(deprecated)]
+#[expect(
+    deprecated,
+    reason = "the destructure names the fields this body must not start sending"
+)]
 #[test]
 fn contract_start_egress_decodes_as_the_message_livekit_expects() {
     use livekit_protocol::{

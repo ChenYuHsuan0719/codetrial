@@ -988,7 +988,7 @@ fn control_end_interview(
             // that never got its own packet still differs from the template, so
             // it still counts.
             let baseline = if state.code_edited {
-                prior_code.clone()
+                prior_code
             } else {
                 state
                     .code_templates

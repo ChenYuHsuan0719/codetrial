@@ -1,4 +1,8 @@
-#![allow(clippy::panic, clippy::unwrap_used)] // see [lints.clippy] in Cargo.toml
+#![expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "a test that fails by panicking is working as intended"
+)]
 
 mod common;
 
@@ -1420,7 +1424,7 @@ async fn setup_page_continues_serving_the_full_app_after_a_successful_submission
     let watching = Arc::new(AtomicBool::new(true));
     let stole = Arc::new(AtomicBool::new(false));
     let watcher = thread::spawn({
-        let (addr, watching, stole) = (addr.clone(), watching.clone(), stole.clone());
+        let (addr, watching, stole) = (addr.clone(), Arc::clone(&watching), Arc::clone(&stole));
         move || {
             while watching.load(Ordering::Relaxed) {
                 // Released immediately: holding it would fail the server's own

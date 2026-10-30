@@ -581,7 +581,7 @@ impl TokenUsage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GeminiEvent {
     /// A usage observation reached the ledger with this frame; see
-    /// [`GeminiLiveSession::take_usage`]. Queued before the frame's
+    /// `GeminiLiveSession::take_usage`. Queued before the frame's
     /// completion, so a turn's count is known when its completion is handled.
     UsageRecorded,
     Audio {
@@ -884,7 +884,13 @@ trait ReportAttemptObserver: Send {
 /// Where a report attempt failed, and the HTTP status when the provider
 /// answered with one. Only the evaluation observer, a test, reads the fields.
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(not(test), expect(dead_code))]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "only the evaluation observer, a test, reads the fields"
+    )
+)]
 struct ReportAttemptFailure {
     stage: &'static str,
     status: Option<u16>,

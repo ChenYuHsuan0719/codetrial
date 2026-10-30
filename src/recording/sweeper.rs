@@ -4,7 +4,11 @@ use crate::accounts::{Accounts, blocking};
 
 use super::store::{SELECT_RECORDING, row_to_recording};
 use super::summary::deletion_reason;
-use super::*;
+use super::{
+    Clock, EVENT_RETENTION_SECONDS, Failure, Recorder, Recording, RecordingState, StartEgress,
+    audit, delete_recording, due_for_deletion, gcs_object_path, prune_webhook_events,
+    record_egress_id, recording_by_id, requeue_orphaned_deliveries, stale_active, transition,
+};
 
 /// Moves the row and then stops the provider, in that order.
 ///
@@ -28,8 +32,8 @@ pub async fn stop_recording(
     reason: Option<&str>,
 ) -> Result<(RecordingState, bool), StopFailure> {
     let (state, mine) = {
-        let accounts = accounts.clone();
-        let clock = recorder.clock.clone();
+        let accounts = Arc::clone(accounts);
+        let clock = Arc::clone(&recorder.clock);
         let recording_id = recording.id.clone();
         let reason = reason.map(str::to_string);
         blocking(move || {
@@ -81,8 +85,8 @@ pub async fn stop_recording(
         // Written only after the provider agreed. A row with an egress id and
         // no `stopped_at` is a job that still needs stopping, which is the only
         // thing that can say so once the state is `failed` and terminal.
-        let accounts = accounts.clone();
-        let clock = recorder.clock.clone();
+        let accounts = Arc::clone(accounts);
+        let clock = Arc::clone(&recorder.clock);
         let id = recording.id.clone();
         if let Err(error) = blocking(move || mark_stopped(&accounts, clock.as_ref(), &id)).await {
             eprintln!(
@@ -123,8 +127,8 @@ pub async fn start_and_record_egress(
     let egress_id = recorder.provider.start(&request).await?;
 
     let stored = {
-        let accounts = accounts.clone();
-        let clock = recorder.clock.clone();
+        let accounts = Arc::clone(accounts);
+        let clock = Arc::clone(&recorder.clock);
         let id = recording.id.clone();
         let egress_id = egress_id.clone();
         blocking(move || record_egress_id(&accounts, clock.as_ref(), &id, &egress_id))
@@ -152,7 +156,7 @@ pub async fn start_and_record_egress(
             .stop(&egress_id, &request.room_name)
             .await
             .inspect_err(|error| {
-                eprintln!("recording {} left a job running: {error}", recording.id)
+                eprintln!("recording {} left a job running: {error}", recording.id);
             });
     }
     Ok(stored)
@@ -174,7 +178,7 @@ pub async fn settle_new_egress(
     egress_id: &str,
 ) {
     let settled = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let recording_id = recording_id.to_string();
         blocking(move || recording_by_id(&accounts, &recording_id)).await
     };
@@ -188,8 +192,8 @@ pub async fn settle_new_egress(
         .await
     {
         Ok(()) => {
-            let accounts = accounts.clone();
-            let clock = recorder.clock.clone();
+            let accounts = Arc::clone(accounts);
+            let clock = Arc::clone(&recorder.clock);
             let id = settled.id.clone();
             let _ = blocking(move || mark_stopped(&accounts, clock.as_ref(), &id)).await;
         }
@@ -370,8 +374,8 @@ pub struct SweepOutcome {
 /// recording rather than a failure.
 ///
 /// The kill switch is handled here too. It refuses new starts at
-/// [`begin_recording`], and an operator who throws it while interviews are
-/// running means the running ones as well.
+/// [`crate::recording::begin_recording`], and an operator who throws it while
+/// interviews are running means the running ones as well.
 pub async fn sweep_recordings(accounts: &Arc<Accounts>, recorder: &Recorder) -> SweepOutcome {
     let now = recorder.clock.now();
     let kill_switch = recorder.config.kill_switch;
@@ -383,7 +387,7 @@ pub async fn sweep_recordings(accounts: &Arc<Accounts>, recorder: &Recorder) -> 
 
     let cutoff = if kill_switch { None } else { Some(now - 60) };
     let stale = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         match blocking(move || stale_active(&accounts, cutoff)).await {
             Ok(stale) => stale,
             Err(error) => {
@@ -396,7 +400,7 @@ pub async fn sweep_recordings(accounts: &Arc<Accounts>, recorder: &Recorder) -> 
     // Bounded, because a ledger that only grows is a table that eventually
     // matters. LiveKit gives up retrying long before this.
     {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let before = now - EVENT_RETENTION_SECONDS;
         if let Err(error) = blocking(move || prune_webhook_events(&accounts, before)).await {
             eprintln!("WARNING: could not prune the webhook ledger: {error}");
@@ -432,7 +436,7 @@ pub async fn sweep_recordings(accounts: &Arc<Accounts>, recorder: &Recorder) -> 
 /// transaction: this is the sweep that already exists to find work nothing is
 /// moving.
 async fn requeue_orphaned_work(accounts: &Arc<Accounts>, now: i64) {
-    let accounts = accounts.clone();
+    let accounts = Arc::clone(accounts);
     match blocking(move || requeue_orphaned_deliveries(&accounts, now)).await {
         Ok(0) => {}
         Ok(requeued) => eprintln!("recording sweep queued {requeued} orphaned deliveries"),
@@ -455,7 +459,7 @@ async fn delete_due_recordings(
         return;
     };
     let due = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         blocking(move || due_for_deletion(&accounts, now)).await
     };
     let due = match due {
@@ -467,7 +471,7 @@ async fn delete_due_recordings(
     };
     for recording in due {
         let reason = {
-            let accounts = accounts.clone();
+            let accounts = Arc::clone(accounts);
             let recording = recording.clone();
             blocking(move || Ok(deletion_reason(&accounts, &recording)))
                 .await
@@ -616,7 +620,7 @@ async fn fail_stale(
 /// moved, and `failed` is terminal, so nothing else will ever ask again.
 async fn stop_orphaned_jobs(accounts: &Arc<Accounts>, recorder: &Recorder) {
     let orphans = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         blocking(move || unstopped_jobs(&accounts))
             .await
             .unwrap_or_default()
@@ -631,8 +635,8 @@ async fn stop_orphaned_jobs(accounts: &Arc<Accounts>, recorder: &Recorder) {
             .await
         {
             Ok(()) => {
-                let accounts = accounts.clone();
-                let clock = recorder.clock.clone();
+                let accounts = Arc::clone(accounts);
+                let clock = Arc::clone(&recorder.clock);
                 let id = orphan.id.clone();
                 let _ = blocking(move || mark_stopped(&accounts, clock.as_ref(), &id)).await;
             }
@@ -652,8 +656,8 @@ async fn retry_start(accounts: &Arc<Accounts>, recorder: &Recorder, recording: &
     // same stale row, both find no job for the room, and both start one; the
     // unique index guards row creation and says nothing about who owns a retry.
     let claimed = {
-        let accounts = accounts.clone();
-        let clock = recorder.clock.clone();
+        let accounts = Arc::clone(accounts);
+        let clock = Arc::clone(&recorder.clock);
         let id = recording.id.clone();
         let seen = recording.updated_at;
         blocking(move || claim_retry(&accounts, clock.as_ref(), &id, seen)).await
@@ -675,8 +679,8 @@ async fn retry_start(accounts: &Arc<Accounts>, recorder: &Recorder, recording: &
                 recording.id
             );
             let stored = {
-                let accounts = accounts.clone();
-                let clock = recorder.clock.clone();
+                let accounts = Arc::clone(accounts);
+                let clock = Arc::clone(&recorder.clock);
                 let id = recording.id.clone();
                 let egress_id = egress_id.clone();
                 blocking(move || record_egress_id(&accounts, clock.as_ref(), &id, &egress_id))
@@ -695,8 +699,8 @@ async fn retry_start(accounts: &Arc<Accounts>, recorder: &Recorder, recording: &
                 "recording {} could not be reconciled with the provider: {error}",
                 recording.id
             );
-            let accounts = accounts.clone();
-            let clock = recorder.clock.clone();
+            let accounts = Arc::clone(accounts);
+            let clock = Arc::clone(&recorder.clock);
             let id = recording.id.clone();
             let _ = blocking(move || bump_retry(&accounts, clock.as_ref(), &id)).await;
             return false;
@@ -713,8 +717,8 @@ async fn retry_start(accounts: &Arc<Accounts>, recorder: &Recorder, recording: &
                 "recording {} could not start on retry: {error}",
                 recording.id
             );
-            let accounts = accounts.clone();
-            let clock = recorder.clock.clone();
+            let accounts = Arc::clone(accounts);
+            let clock = Arc::clone(&recorder.clock);
             let id = recording.id.clone();
             let _ = blocking(move || bump_retry(&accounts, clock.as_ref(), &id)).await;
             false

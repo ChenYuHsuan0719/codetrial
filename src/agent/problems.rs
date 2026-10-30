@@ -24,7 +24,7 @@ pub fn topics_for(problem_id: &str) -> Option<&'static [&'static str]> {
     lookup(super::problem_topics::PROBLEM_TOPICS, problem_id).copied()
 }
 
-pub fn variant_for(problem_id: &str) -> Option<&'static ProblemVariant> {
+pub(crate) fn variant_for(problem_id: &str) -> Option<&'static ProblemVariant> {
     lookup(super::problem_variants::PROBLEM_VARIANTS, problem_id)
 }
 

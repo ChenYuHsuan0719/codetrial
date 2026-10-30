@@ -8,7 +8,7 @@
 
 /// The longest run of consecutive words two texts share, compared as lowercase
 /// letters and digits so punctuation cannot hide a copied phrase.
-pub fn shared_run(left: &str, right: &str) -> usize {
+pub(crate) fn shared_run(left: &str, right: &str) -> usize {
     let (left, right) = (words(left), words(right));
     let mut longest = 0;
     for start in 0..left.len() {
@@ -31,7 +31,7 @@ pub fn shared_run(left: &str, right: &str) -> usize {
 /// Delegates so the tests split words the same way the report validator does.
 /// Two copies of the rule is how the generator, the prompt tests and the
 /// server stop agreeing about what a word is.
-pub fn words(text: &str) -> Vec<String> {
+pub(crate) fn words(text: &str) -> Vec<String> {
     codetrial::agent::spelled_words(text)
 }
 
@@ -43,6 +43,6 @@ pub fn words(text: &str) -> Vec<String> {
 /// because a scenario uses the word. Any other title counts when a run of
 /// consecutive words spells it with the spaces gone: "LRUCache", "lru cache"
 /// and "3 Sum" all name their problems, and "those 3 sums" does not.
-pub fn names_title(title: &str, text: &str) -> bool {
+pub(crate) fn names_title(title: &str, text: &str) -> bool {
     codetrial::agent::names_published_problem(title, text)
 }

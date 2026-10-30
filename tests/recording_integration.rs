@@ -1,4 +1,7 @@
-#![allow(clippy::panic, clippy::unwrap_used)] // see [lints.clippy] in Cargo.toml
+#![expect(
+    clippy::panic,
+    reason = "a test that fails by panicking is working as intended"
+)]
 
 //! The credentialed acceptance for recording, and the rules it applies.
 //!

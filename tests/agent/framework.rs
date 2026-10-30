@@ -3678,7 +3678,7 @@ fn received_execution_records_test_without_a_model_call() {
 fn automatic_test_credit_obeys_submission_and_session_gates() {
     let mut cases = Vec::new();
     let written = with_written_code(RuntimeState::default());
-    let code = written.code.clone();
+    let code = written.code;
     for packet in [
         json!({"code": code, "language": "python", "total": 0}),
         json!({"code": code, "language": "python", "total": 3, "setupError": "SyntaxError"}),
@@ -3955,10 +3955,7 @@ fn the_phase_judge_grounds_coding_in_what_the_candidate_typed() {
     );
     let code = json!([{"step": "coding", "quote": "return sorted(nums)",
         "summary": "Sorted the input and returned it."}]);
-    assert!(
-        judge(&mut state, code.clone()).is_empty(),
-        "three words is too few"
-    );
+    assert!(judge(&mut state, code).is_empty(), "three words is too few");
     let code = json!([{"step": "coding", "quote": "pass return sorted(nums)",
         "summary": "Sorted the input and returned it."}]);
     let recorded = judge(&mut state, code);
@@ -4545,7 +4542,7 @@ fn a_garbled_later_turn_leaves_a_verified_quote_standing() {
         transcript: vec![
             "Candidate: I get the busy blocks and one new block and return them merged in order"
                 .into(),
-            "Candidate: 我们先排序然后合并重叠的区间吧".into(),
+            "Candidate: ταξινομούμε πρώτα και μετά συγχωνεύουμε τα διαστήματα".into(),
         ],
         ..RuntimeState::default()
     };

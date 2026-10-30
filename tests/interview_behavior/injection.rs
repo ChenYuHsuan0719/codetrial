@@ -975,7 +975,7 @@ async fn mock_probe(
     let app = axum::Router::new().route(
         "/",
         axum::routing::post(move || {
-            let responses = responses.clone();
+            let responses = std::sync::Arc::clone(&responses);
             async move {
                 let mut response = responses
                     .lock()

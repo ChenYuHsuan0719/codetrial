@@ -502,6 +502,10 @@ fn an_owed_briefing_leaves_the_floor_alone() {
     assert_eq!(activity.floor, Floor::Listening);
 }
 
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the config field it fills is an Option"
+)]
 fn window(
     trigger_tokens: u32,
     target_tokens: u32,

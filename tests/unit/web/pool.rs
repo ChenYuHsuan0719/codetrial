@@ -129,11 +129,11 @@ async fn counting_quota_stub(
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let probes = std::sync::Arc::new(AtomicUsize::new(0));
-    let counted = probes.clone();
+    let counted = std::sync::Arc::clone(&probes);
     let app = axum::Router::new().route(
         "/rtc/validate",
         axum::routing::get(move |headers: axum::http::HeaderMap| {
-            let counted = counted.clone();
+            let counted = std::sync::Arc::clone(&counted);
             async move {
                 counted.fetch_add(1, Ordering::Relaxed);
                 if !probe_credential_accepted(&headers, STUB_API_KEY, STUB_API_SECRET) {

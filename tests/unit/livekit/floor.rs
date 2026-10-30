@@ -6,7 +6,7 @@ fn run(events: Vec<(u64, Event)>) -> Vec<Record> {
     let mut records = Vec::new();
     for (ms, event) in events {
         tracker.observe(event, start + Duration::from_millis(ms), &mut |r| {
-            records.push(r)
+            records.push(r);
         });
     }
     records

@@ -1,4 +1,8 @@
-#![allow(clippy::panic, clippy::unwrap_used)] // see [lints.clippy] in Cargo.toml
+#![expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "a test that fails by panicking is working as intended"
+)]
 
 //! Whether the interviewer behaves the way the live prompt asks, and the rules
 //! that decide it.

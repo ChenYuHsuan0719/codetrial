@@ -5,7 +5,9 @@ use std::sync::Arc;
 use crate::accounts::{Accounts, blocking};
 
 use super::store::{Handle, clear_handle, delivery_handles};
-use super::*;
+use super::{
+    Clock, DeliveryProvider, Failure, Recorder, Recording, RecordingState, audit, transition,
+};
 
 /// One step of releasing a recording's media: what to ask the provider for, and
 /// the handle the row stops naming once that lands.
@@ -47,7 +49,7 @@ pub async fn delete_recording(
     deleted_by: &str,
 ) -> Result<RecordingState, String> {
     let stored = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let id = recording.id.clone();
         blocking(move || delivery_handles(&accounts, &id)).await
     };
@@ -113,7 +115,7 @@ pub async fn delete_recording(
             failed = Some((step, error));
             break;
         }
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let id = recording.id.clone();
         if let Err(error) = blocking(move || clear_handle(&accounts, &id, handle)).await {
             // The handle is gone from the provider and the row still names it.
@@ -144,8 +146,8 @@ pub async fn delete_recording(
     }
 
     let tombstoned = {
-        let accounts = accounts.clone();
-        let clock = recorder.clock.clone();
+        let accounts = Arc::clone(accounts);
+        let clock = Arc::clone(&recorder.clock);
         let id = recording.id.clone();
         let deleted_by = deleted_by.to_string();
         blocking(move || tombstone(&accounts, clock.as_ref(), &id, &deleted_by)).await
@@ -194,8 +196,8 @@ async fn fail_cleanup(
     recording_id: &str,
     failure: Failure,
 ) -> bool {
-    let accounts = accounts.clone();
-    let clock = recorder.clock.clone();
+    let accounts = Arc::clone(accounts);
+    let clock = Arc::clone(&recorder.clock);
     let id = recording_id.to_string();
     let moved = blocking(move || {
         transition(

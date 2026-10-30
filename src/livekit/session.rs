@@ -702,10 +702,10 @@ pub(super) fn accept_gemini_event(
                     activity.note_output(now);
                     match event {
                         GeminiEvent::OutputTranscript(_) => {
-                            activity.turn_timing.note_output_transcript()
+                            activity.turn_timing.note_output_transcript();
                         }
                         GeminiEvent::Text(_) | GeminiEvent::Audio { .. } => {
-                            activity.turn_timing.note_model_output()
+                            activity.turn_timing.note_model_output();
                         }
                         _ => {}
                     }
@@ -3008,7 +3008,7 @@ fn close_turn(turn: &mut SpeakerTurn, speaker: &str) -> Option<(String, String)>
     if !turn.is_open() {
         return None;
     }
-    let closed = (turn.text().to_string(), turn.segment_id(speaker));
+    let closed = (turn.text(), turn.segment_id(speaker));
     turn.finish();
     Some(closed)
 }

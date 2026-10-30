@@ -404,7 +404,7 @@ fn validate_report_judging(
 
 /// The follow-ups the brief numbered, judged at most once each, and never
 /// more of them than the problem has.
-pub const MAX_FOLLOW_UPS: usize = 3;
+pub(crate) const MAX_FOLLOW_UPS: usize = 3;
 /// What one follow-up's assessment may hold: a few sentences, as the brief
 /// asks for.
 const MAX_FOLLOW_UP_TEXT: usize = 600;

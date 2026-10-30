@@ -368,7 +368,7 @@ fn a_single_overlong_line_is_cut_to_the_longest_tail_that_fits() {
     // cut moves to is up to two bytes past where it landed. An ASCII line
     // spends the budget exactly, which is the case that separates "fits" from
     // "fits with room to spare".
-    let ascii = "Candidate: ".to_string() + &"x".repeat(2_000);
+    let ascii = format!("Candidate: {}", "x".repeat(2_000));
     let ascii_tail = transcript_tail(&[ascii], BUDGET);
     let (_, ascii_kept) = ascii_tail.split_once('\n').expect("also announced");
     assert_eq!(ascii_kept.len(), BUDGET);
@@ -1852,7 +1852,7 @@ fn grounding_limits_hold_exactly_where_they_say() {
     // The longest item that is still allowed, and one character past it.
     assert_eq!(
         sanitize_interview_grounding(Some(&packet(json!([at_char_limit])))).requirements,
-        vec![at_char_limit.clone()]
+        vec![at_char_limit]
     );
     assert!(sanitize_interview_grounding(Some(&packet(json!([over_char_limit])))).is_empty());
 
@@ -1865,7 +1865,7 @@ fn grounding_limits_hold_exactly_where_they_say() {
             .len(),
         8
     );
-    let mut over = full.clone();
+    let mut over = full;
     over.push("requirement 8".to_string());
     assert!(sanitize_interview_grounding(Some(&packet(json!(over)))).is_empty());
 

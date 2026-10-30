@@ -64,11 +64,11 @@ fn a_cut_excerpt_fills_its_budget_to_the_byte() {
 #[test]
 fn the_ending_excerpt_names_the_line_it_starts_on() {
     for trailing in ["", "\n"] {
-        let code = (1..=300)
+        let body = (1..=300)
             .map(|n| format!("let value_{n:03} = {n};"))
             .collect::<Vec<_>>()
-            .join("\n")
-            + trailing;
+            .join("\n");
+        let code = format!("{body}{trailing}");
         let text = compression_editor("rust", &code);
         let line = text
             .split("ending starts at line ")

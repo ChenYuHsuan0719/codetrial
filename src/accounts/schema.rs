@@ -107,7 +107,8 @@ fn migrate(connection: &mut rusqlite::Connection) -> rusqlite::Result<()> {
         // index would panic rather than say so.
         return Err(rusqlite::Error::InvalidQuery);
     }
-    for migration in &ACCOUNT_MIGRATIONS[applied as usize..] {
+    let applied = usize::try_from(applied).map_err(|_| rusqlite::Error::InvalidQuery)?;
+    for migration in &ACCOUNT_MIGRATIONS[applied..] {
         transaction.execute_batch(migration)?;
     }
     transaction.execute_batch(&format!("PRAGMA user_version = {ACCOUNT_SCHEMA_VERSION}"))?;

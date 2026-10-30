@@ -25,7 +25,9 @@ type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 pub(super) async fn connect(url: &str) -> Result<Socket, BoxError> {
     let request = url.into_client_request()?;
-    let connector = Some(Connector::Rustls(crate::tls_config().clone()));
+    let connector = Some(Connector::Rustls(
+        std::sync::Arc::clone(crate::tls_config()),
+    ));
     let Some(proxy) = proxy_for(request.uri(), &Matcher::from_env()) else {
         let (socket, _) = connect_async_tls_with_config(request, None, false, connector).await?;
         return Ok(socket);

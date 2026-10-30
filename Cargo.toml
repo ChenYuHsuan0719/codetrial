@@ -5,6 +5,9 @@ edition = "2024"
 rust-version = "1.98"
 license = "MIT"
 
+[lints]
+workspace = true
+
 # The gate already runs `cargo clippy -- -D warnings`, and an editor running a
 # bare `cargo clippy` used to disagree with it: warnings there, a red gate here,
 # and the difference only visible after a push. Stating the level in the
@@ -13,8 +16,13 @@ license = "MIT"
 # `unsafe_code` is forbidden rather than denied. There is none in this crate --
 # every match for the word is a Content-Security-Policy string or a comment --
 # and `forbid` is what stops a local `#[allow]` from quietly reintroducing it.
-[lints.rust]
+[workspace.lints.rust]
 unsafe_code = "forbid"
+# A `pub` item nothing outside the crate can name is a promise nobody can use.
+unreachable_pub = "deny"
+unused_lifetimes = "deny"
+unused_must_use = "deny"
+unfulfilled_lint_expectations = "deny"
 
 # The four restriction lints below had no match outside test code when they
 # were added, so denying them costs nothing and keeps it that way: a request
@@ -22,12 +30,45 @@ unsafe_code = "forbid"
 # down with it, and `dbg!` and `todo!` are leftovers. A startup invariant
 # says why with `expect`, which stays allowed. Test code is exempt through
 # clippy.toml for unit tests and a crate attribute in each tests/*.rs.
-[lints.clippy]
+[workspace.lints.clippy]
 all = "deny"
 dbg_macro = "deny"
 panic = "deny"
 todo = "deny"
 unwrap_used = "deny"
+
+# `missing_debug_implementations` stays off on purpose: a type holding a
+# credential has no `Debug` so that nothing can log it, and its doc comment says
+# so. The lint would ask for exactly the derive that policy forbids.
+
+# A suppression names the lint it silences and says why, and `expect` is the
+# form that tells on itself once the lint stops firing.
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+
+# Ownership that reads at the call site.
+clone_on_ref_ptr = "deny"
+redundant_clone = "deny"
+string_add = "deny"
+fn_params_excessive_bools = "deny"
+
+# Signatures that promise nothing they do not use.
+unnecessary_wraps = "deny"
+panic_in_result_fn = "deny"
+
+wildcard_imports = "deny"
+semicolon_if_nothing_returned = "deny"
+cast_sign_loss = "deny"
+
+# A guard held across an await blocks the executor; a dropped future never runs
+# and a forgotten guard never releases what it holds.
+await_holding_lock = "deny"
+let_underscore_future = "deny"
+mem_forget = "deny"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"
 
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }

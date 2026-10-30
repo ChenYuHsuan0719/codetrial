@@ -1,4 +1,8 @@
-#![allow(clippy::panic, clippy::unwrap_used)] // see [lints.clippy] in Cargo.toml
+#![expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "a test that fails by panicking is working as intended"
+)]
 
 mod common;
 
@@ -371,6 +375,10 @@ impl RoomDispatcher for RecordingDispatcher {
         true
     }
 
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "a test double: a wrong dispatch is the test failing"
+    )]
     fn ensure_agent(
         &self,
         room_name: &str,
@@ -604,13 +612,13 @@ async fn spawn_github_stub(emails: (axum::http::StatusCode, Value)) -> (String, 
     let addr = listener.local_addr().unwrap();
     let emails = std::sync::Arc::new(emails);
     let issued = MockGitHubIssued::default();
-    let exchange_issued = issued.clone();
-    let user_issued = issued.clone();
+    let exchange_issued = std::sync::Arc::clone(&issued);
+    let user_issued = std::sync::Arc::clone(&issued);
     let router = axum::Router::new()
         .route(
             "/login/oauth/access_token",
             axum::routing::post(move |body: String| {
-                let exchange_issued = exchange_issued.clone();
+                let exchange_issued = std::sync::Arc::clone(&exchange_issued);
                 async move {
                     let posted = serde_json::from_str::<Value>(&body).unwrap_or(Value::Null);
                     let field = |name: &str| {
@@ -643,7 +651,7 @@ async fn spawn_github_stub(emails: (axum::http::StatusCode, Value)) -> (String, 
         .route(
             "/user",
             axum::routing::get(move |headers: axum::http::HeaderMap| {
-                let user_issued = user_issued.clone();
+                let user_issued = std::sync::Arc::clone(&user_issued);
                 async move {
                     if !mock_github_authorized(&headers, &user_issued) {
                         return mock_github_unauthorized();
@@ -660,8 +668,8 @@ async fn spawn_github_stub(emails: (axum::http::StatusCode, Value)) -> (String, 
         .route(
             "/user/emails",
             axum::routing::get(move |headers: axum::http::HeaderMap| {
-                let emails = emails.clone();
-                let issued = issued.clone();
+                let emails = std::sync::Arc::clone(&emails);
+                let issued = std::sync::Arc::clone(&issued);
                 async move {
                     if !mock_github_authorized(&headers, &issued) {
                         return mock_github_unauthorized();
@@ -1326,15 +1334,15 @@ async fn spawn_counting_quota_stub(
     TestServer,
 ) {
     let hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let counter = hits.clone();
+    let counter = std::sync::Arc::clone(&hits);
     let credentials = std::sync::Arc::new((api_key.to_string(), api_secret.to_string()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let router = axum::Router::new().route(
         "/rtc/validate",
         axum::routing::get(move |headers: axum::http::HeaderMap| {
-            let counter = counter.clone();
-            let credentials = credentials.clone();
+            let counter = std::sync::Arc::clone(&counter);
+            let credentials = std::sync::Arc::clone(&credentials);
             async move {
                 tokio::time::sleep(delay).await;
 

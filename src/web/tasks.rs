@@ -578,7 +578,7 @@ pub(crate) async fn task_start_handler(
             &room_name,
             provider,
             super::AgentJob::Task {
-                candidate: identity.clone(),
+                candidate: identity,
                 task,
             },
         )

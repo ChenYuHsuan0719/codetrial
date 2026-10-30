@@ -1,6 +1,6 @@
 //! Interview consent, per-account quotas, and exclusive room claims.
 
-use super::*;
+use super::{Accounts, OptionalExtension, SecureRandom};
 
 /// A career of interviews, bounded. `POST /api/interviews` is an authenticated
 /// write with no other ceiling, and a client that calls it in a loop grows the

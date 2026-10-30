@@ -2,12 +2,12 @@
 //! API key and API secret.
 //!
 //! Split out of `rooms.rs`, where the transport read its credentials from
-//! `AgentConfig`. The agent's duplicate handling still goes through it, but so
-//! does room cleanup on the web server, which never loads an agent config and
-//! has only the provider's credentials to hand.
+//! `AgentConfig`. The agent's duplicate handling still goes through it. Room
+//! deletion for the web server, which has only a provider's credentials to
+//! hand, is exercised by the tests and has no production caller yet.
 
 use crate::config::livekit_http_base;
-use crate::token::{livekit_room_admin_token, livekit_room_create_token};
+use crate::token::livekit_room_admin_token;
 
 /// The Twirp POST every RoomService caller makes. Only the token and the base
 /// differ, and both are strings; the body comes back with the status because a
@@ -64,6 +64,7 @@ pub(super) fn parse_room_service_response(
 /// proxy can answer 200 with an HTML page while the room is still there. Any
 /// other refusal is an error carrying the method, the status and LiveKit's
 /// body, the same shape as every other RoomService failure.
+#[cfg(test)]
 pub(crate) async fn delete_room(
     url: &str,
     api_key: &str,
@@ -71,7 +72,7 @@ pub(crate) async fn delete_room(
     room_name: &str,
     now_seconds: u64,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let token = livekit_room_create_token(api_key, api_secret, now_seconds)?;
+    let token = crate::token::livekit_room_create_token(api_key, api_secret, now_seconds)?;
     let (status, text) = post_room_service(
         &livekit_http_base(url),
         &token,

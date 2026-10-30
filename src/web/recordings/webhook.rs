@@ -65,7 +65,7 @@ pub(crate) async fn recording_webhook_handler(
         &api_secret,
         authorization,
         body.as_ref(),
-        recorder.clock.now().max(0) as u64,
+        recorder.clock.now().max(0).cast_unsigned(),
     ) {
         eprintln!("recording webhook refused: {rejection}");
         return json_response(
@@ -96,7 +96,7 @@ pub(crate) async fn recording_webhook_handler(
     // alternative is a lock held across a provider call, and every transition
     // below is idempotent by the table, so the outcome is the same one twice.
     let fresh = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(&accounts);
         let now = recorder.clock.now();
         blocking(move || crate::recording::claim_webhook_event(&accounts, &event_id, now)).await
     };
@@ -126,7 +126,7 @@ pub(crate) async fn recording_webhook_handler(
     }
 
     let applied = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(&accounts);
         let event_id = event
             .get("id")
             .and_then(Value::as_str)
@@ -251,14 +251,14 @@ async fn apply_webhook(
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string();
-            let accounts = accounts.clone();
+            let accounts = Arc::clone(accounts);
             blocking(move || crate::recording::recording_for_room(&accounts, &room)).await
         }
         "egress_started" | "egress_updated" | "egress_ended" => {
             let Some(egress_id) = egress_id else {
                 return true;
             };
-            let accounts = accounts.clone();
+            let accounts = Arc::clone(accounts);
             blocking(move || crate::recording::recording_for_egress(&accounts, &egress_id)).await
         }
 
@@ -297,8 +297,8 @@ async fn apply_webhook(
             .status()
             .is_success(),
         "egress_started" => {
-            let accounts = accounts.clone();
-            let clock = recorder.clock.clone();
+            let accounts = Arc::clone(accounts);
+            let clock = Arc::clone(&recorder.clock);
             let id = recording.id.clone();
             blocking(move || {
                 crate::recording::transition(
@@ -373,8 +373,8 @@ async fn apply_egress_status(
     // has to chase. A failure here fails the whole application, because the
     // alternative is a terminal row that looks stopped and a job that is not.
     let stopped = {
-        let accounts = accounts.clone();
-        let clock = recorder.clock.clone();
+        let accounts = Arc::clone(accounts);
+        let clock = Arc::clone(&recorder.clock);
         let id = recording.id.clone();
         blocking(move || crate::recording::mark_stopped(&accounts, clock.as_ref(), &id)).await
     };
@@ -394,8 +394,8 @@ async fn apply_egress_status(
         RecordingState::Finalizing,
     ];
     let moved = {
-        let accounts = accounts.clone();
-        let clock = recorder.clock.clone();
+        let accounts = Arc::clone(accounts);
+        let clock = Arc::clone(&recorder.clock);
         let id = recording.id.clone();
         let reason = failure.map(|failure| failure.as_str().to_string());
         blocking(move || {
@@ -418,7 +418,7 @@ async fn apply_egress_status(
     if next == RecordingState::Transferring
         && let Ok(Some((_, true))) = &moved
     {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let id = recording.id.clone();
         let now = recorder.clock.now();
         if let Err(error) =

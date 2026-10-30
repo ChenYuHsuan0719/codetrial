@@ -769,8 +769,10 @@ fn live_open_retries_within_budget_and_rotates_only_with_backups() {
 /// A check that reached a key the interview's first open never could would
 /// pass on a configuration that cannot start an interview.
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn check_stops_where_the_first_interview_open_would() {
     let names: Vec<String> = (0..crate::livekit::GEMINI_RESTART_LIMIT + 3)
         .map(|index| format!("check-budget-{index}"))
@@ -810,8 +812,10 @@ async fn check_stops_where_the_first_interview_open_would() {
 /// A 503 says nothing about the key, so a check reports it instead of
 /// spreading the outage across the backups.
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn check_reports_a_503_without_trying_the_backups() {
     let config = live_config(&[("GOOGLE_API_KEYS", "check-503-first,check-503-backup")]);
     let keys = GeminiKeys::from_config(&config);
@@ -844,8 +848,10 @@ async fn check_reports_a_503_without_trying_the_backups() {
 }
 
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn check_moves_past_a_rejected_key_to_a_working_backup() {
     let config = live_config(&[("GOOGLE_API_KEYS", "check-rejected,check-backup")]);
     let keys = GeminiKeys::from_config(&config);

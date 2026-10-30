@@ -631,11 +631,11 @@ async fn unrecognized_speech_cannot_back_a_check_and_recovery_reads_the_marker()
             .record_check("trace", "covered", "initial", "turn-1")
             .is_err()
     );
-    for index in 2..=10 {
+    for index in 2..=10_u64 {
         session.observe_turn(
             &format!("turn-{index}"),
             &format!("I traced step {index}."),
-            101 + index as u64,
+            101 + index,
         );
     }
     let tail = session.recent_turns(4096);

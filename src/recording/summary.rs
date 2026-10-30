@@ -3,7 +3,7 @@ use rusqlite::OptionalExtension;
 use crate::accounts::Accounts;
 
 use super::store::{SELECT_RECORDING, row_to_recording};
-use super::*;
+use super::{Failure, Recording, RecordingState};
 
 /// One page of an account's recordings, newest first.
 ///

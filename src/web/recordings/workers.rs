@@ -33,7 +33,7 @@ pub(crate) fn spawn_recording_workers(
 ) -> BackgroundTasks {
     let mut workers = BackgroundTasks::default();
 
-    let sweeping = (accounts.clone(), recorder.clone());
+    let sweeping = (Arc::clone(&accounts), recorder.clone());
     workers.push("sweep recordings", async move {
         let (accounts, recorder) = sweeping;
         loop {
@@ -51,12 +51,9 @@ pub(crate) fn spawn_recording_workers(
     if let Some(delivery) = recorder.delivery.clone() {
         workers.push("deliver recordings", async move {
             loop {
-                let outcome = crate::recording::run_delivery_queue(
-                    &accounts,
-                    &recorder,
-                    delivery.as_ref() as &dyn crate::recording::DeliveryProvider,
-                )
-                .await;
+                let outcome =
+                    crate::recording::run_delivery_queue(&accounts, &recorder, delivery.as_ref())
+                        .await;
                 if let Some(line) = delivery_line(&outcome) {
                     eprintln!("{line}");
                 }

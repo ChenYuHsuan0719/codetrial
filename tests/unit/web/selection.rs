@@ -310,6 +310,10 @@ fn receipt_parsing_bounds_bytes_before_authentication() {
 
 // Every supplied word must be consumed, and an unexpected retry fails instead
 // of hanging. This observes the rejection path as well as the returned index.
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "a test helper: an unexpected result is the test failing"
+)]
 fn index_from_words(
     count: usize,
     words: impl IntoIterator<Item = Result<u64, SelectionError>>,

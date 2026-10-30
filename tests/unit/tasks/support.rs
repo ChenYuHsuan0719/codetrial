@@ -6,16 +6,16 @@ use crate::tasks::access::{Admission, Assignment, PinnedTask, Preparation, TaskS
 use crate::tasks::package::{Download, LoadedSet, open_package};
 
 /// The instructor site the fixture assignments name.
-pub const SITE: &str = "https://teacher.github.io/course";
+pub(crate) const SITE: &str = "https://teacher.github.io/course";
 
-pub fn assignment(set_id: &str, version: u32) -> Assignment {
+pub(crate) fn assignment(set_id: &str, version: u32) -> Assignment {
     Assignment::new(SITE, set_id, version).unwrap()
 }
 
 /// The PIN `tests/fixtures/task-mode/package.enc` was built with.
-pub const PIN: &str = "123456";
+pub(crate) const PIN: &str = "123456";
 
-pub fn download() -> Download {
+pub(crate) fn download() -> Download {
     Download {
         manifest: include_bytes!("../../../tests/fixtures/task-mode/manifest.json").to_vec(),
         ciphertext: include_bytes!("../../../tests/fixtures/task-mode/package.enc").to_vec(),
@@ -25,12 +25,12 @@ pub fn download() -> Download {
 
 /// The fixture set, decoded once per test process: the key derivation is
 /// deliberately slow and most tests only need its result.
-pub static SET: LazyLock<Arc<LoadedSet>> = LazyLock::new(|| {
+pub(crate) static SET: LazyLock<Arc<LoadedSet>> = LazyLock::new(|| {
     let fixture = download();
     Arc::new(open_package("classroom", 7, &fixture.manifest, fixture.ciphertext, PIN).unwrap())
 });
 
-pub fn preparation() -> Preparation {
+pub(crate) fn preparation() -> Preparation {
     Preparation {
         rules_acknowledged_at: "2026-10-07T00:00:00Z".to_owned(),
         calibration: json!({"ok": true, "metric": "keypoints", "baseline": 0.5, "keyboard": 0.7, "limit": 0.75}),
@@ -40,13 +40,13 @@ pub fn preparation() -> Preparation {
 }
 
 /// A service with the fixture set unlocked for account 1.
-pub fn unlocked_service() -> TaskService {
+pub(crate) fn unlocked_service() -> TaskService {
     let service = TaskService::new();
     service.insert_unlocked(1, SITE, SET.clone());
     service
 }
 
-pub fn admit(service: &TaskService, request_key: &str, now: u64) -> PinnedTask {
+pub(crate) fn admit(service: &TaskService, request_key: &str, now: u64) -> PinnedTask {
     match service
         .begin_admission(
             1,
@@ -65,6 +65,6 @@ pub fn admit(service: &TaskService, request_key: &str, now: u64) -> PinnedTask {
 }
 
 /// An admitted attempt at the customized fixture task.
-pub async fn admitted() -> PinnedTask {
+pub(crate) async fn admitted() -> PinnedTask {
     admit(&unlocked_service(), "fixture", 100)
 }

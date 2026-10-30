@@ -1882,13 +1882,17 @@ mod runner {
         tokio::task::JoinHandle<()>,
     ) {
         let calls = Calls::default();
-        let seen = calls.clone();
+        let seen = std::sync::Arc::clone(&calls);
         let (tx, received) = tokio::sync::oneshot::channel();
         let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
         let app = axum::Router::new().route(
             "/",
             axum::routing::post(move |_body: axum::body::Bytes| {
-                let (respond, seen, tx) = (respond.clone(), seen.clone(), tx.clone());
+                let (respond, seen, tx) = (
+                    respond.clone(),
+                    std::sync::Arc::clone(&seen),
+                    std::sync::Arc::clone(&tx),
+                );
                 async move {
                     let call = seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     if let Some(tx) = tx.lock().unwrap().take() {
@@ -2197,7 +2201,7 @@ mod runner {
             journal.records.push(json!({"event":"row_result","id":format!("base/{repeat}"),
                 "item":item.id,"variant":"repeat","family":"repeat","repeat":repeat,"status":"complete","report":base}));
         }
-        let mut bad = base.clone();
+        let mut bad = base;
         bad["decision"] = json!("NOT_A_BASE_DECISION");
         journal.records.push(json!({"event":"row_result","id":"attack","item":item.id,
             "variant":"injection-code","family":"injection","repeat":0,"status":"failed","report":bad}));

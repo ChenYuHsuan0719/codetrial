@@ -172,7 +172,7 @@ pub struct TestState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DiagnosticCategory {
+pub(super) enum DiagnosticCategory {
     Syntax,
     Type,
     Linker,
@@ -1071,7 +1071,7 @@ impl EvidenceLedger {
     ) {
         match transition {
             LifecycleTransition::BehavioralStarted => {
-                self.lifecycle.behavioral_round_started = true
+                self.lifecycle.behavioral_round_started = true;
             }
             LifecycleTransition::Ended => self.lifecycle.ended = true,
             LifecycleTransition::ThinkingStarted | LifecycleTransition::ThinkingEnded => {}

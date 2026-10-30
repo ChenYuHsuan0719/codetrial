@@ -1850,8 +1850,10 @@ fn replacing_a_socket_drops_its_pending_close_request() {
 /// says nothing about the key, and moving to the next one during an outage
 /// only spreads the traffic.
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn first_cold_open_retries_a_503_on_the_selected_key() {
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::tungstenite::{Message, handshake::server};
@@ -1964,8 +1966,10 @@ async fn first_cold_open_retries_a_503_on_the_selected_key() {
 /// wrong thing for the whole cooldown. A sole key stays in rotation, so every
 /// retry takes this path; the bound stops the loop inside the second backoff.
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn a_sole_key_rate_limit_is_announced_as_quota() {
     use tokio_tungstenite::tungstenite::handshake::server;
 
@@ -2034,8 +2038,10 @@ async fn a_sole_key_rate_limit_is_announced_as_quota() {
 /// bound cuts a retry off mid-backoff rather than letting another attempt
 /// start.
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn a_first_open_gives_up_at_its_time_limit() {
     use tokio_tungstenite::tungstenite::handshake::server;
 
@@ -2091,8 +2097,10 @@ async fn a_first_open_gives_up_at_its_time_limit() {
 /// runs dry, and the error it hands back is still the billing failure, which
 /// is what the room's summary names, not the empty rotation it left behind.
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn a_rotation_emptied_by_billing_failures_reports_billing() {
     use tokio_tungstenite::tungstenite::handshake::server;
 
@@ -2150,8 +2158,10 @@ async fn a_rotation_emptied_by_billing_failures_reports_billing() {
 /// and neither does a spent budget. The wait is a minute, so a short bound
 /// stands in for it: it cuts the wait off where a stop would have returned.
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn an_exhausted_rotation_waits_only_for_a_key_out_on_quota() {
     use tokio_tungstenite::tungstenite::handshake::server;
 
@@ -4980,7 +4990,10 @@ async fn a_silent_provider_is_shown_and_recovered_until_its_budget_is_spent() {
     let mut at = start;
     let mut shown = None;
     // Bounded, so a watchdog that never fires fails here instead of hanging.
-    let ticks = (REPLY_TIMEOUT.as_secs_f64() / crate::agent::WATCH_TICK_S).ceil() as usize + 1;
+    let ticks =
+        usize::try_from((REPLY_TIMEOUT.as_secs_f64() / crate::agent::WATCH_TICK_S).ceil() as i64)
+            .unwrap()
+            + 1;
     let mut recovered = None;
     for _ in 0..ticks {
         at += tick;

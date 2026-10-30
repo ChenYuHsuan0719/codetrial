@@ -612,7 +612,10 @@ fn an_attempt_is_admitted_only_in_a_language_its_task_allows() {
     // the starter for each language it may choose, no other.
     assert_eq!(loaded["languages"], json!(["python"]));
     let exercise = &SET.records["delimiter-closer"];
-    assert_eq!(loaded["title"], json!(Exercise(exercise.clone()).title()));
+    assert_eq!(
+        loaded["title"],
+        json!(Exercise(std::sync::Arc::clone(exercise)).title())
+    );
     assert!(
         loaded["contract"]
             .as_str()
@@ -662,7 +665,7 @@ fn a_compiled_language_is_unavailable_without_compiler_explorer_not_unsupported(
     )
     .unwrap();
     let set = crate::tasks::package::LoadedSet {
-        config: SET.config.clone(),
+        config: std::sync::Arc::clone(&SET.config),
         records: [("delimiter-closer".to_owned(), Arc::new(record))].into(),
     };
     let service = TaskService::new();

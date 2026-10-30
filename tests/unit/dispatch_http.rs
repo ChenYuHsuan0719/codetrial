@@ -251,7 +251,10 @@ impl Probe {
         };
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
-        let service = crate::web::web_service_with_dispatcher(config, Some(dispatcher.clone()));
+        let service = crate::web::web_service_with_dispatcher(
+            config,
+            Some(std::sync::Arc::<LocalDispatcher>::clone(&dispatcher)),
+        );
         let server = tokio::spawn(async move {
             axum::serve(listener, service).await.unwrap();
         });

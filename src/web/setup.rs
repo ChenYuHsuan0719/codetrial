@@ -64,7 +64,7 @@ pub fn setup_service(
             post(move |body| {
                 submit_setup(
                     body,
-                    ready.clone(),
+                    Arc::clone(&ready),
                     production,
                     config_path.clone(),
                     offer.clone(),

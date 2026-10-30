@@ -485,7 +485,7 @@ impl TaskSession {
             reviewed_hash: None,
             code_review_nudges: 0,
             wrap_up_checks: BTreeSet::new(),
-            revision_hashes: BTreeMap::from([("initial".to_owned(), initial.content_hash.clone())]),
+            revision_hashes: BTreeMap::from([("initial".to_owned(), initial.content_hash)]),
         }
     }
 

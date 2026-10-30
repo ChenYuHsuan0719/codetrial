@@ -409,7 +409,7 @@ fn real_tool_dispatch_records_only_tools_before_reply_audio() {
             .is_none()
     );
     activity.note_candidate_finished(start + Duration::from_secs(3), false);
-    execute_timed_tool_batch(&mut state, &mut activity, vec![call.clone()], 0, false);
+    execute_timed_tool_batch(&mut state, &mut activity, vec![call], 0, false);
     let next = activity
         .turn_timing
         .note_audio(start + Duration::from_secs(4), true)
@@ -1608,6 +1608,10 @@ fn oral_test_trace_cannot_end_the_interview_before_execution() {
     assert!(!state.end_requested);
 }
 
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the config field it fills is an Option"
+)]
 fn compressing() -> Option<crate::config::GeminiContextCompression> {
     Some(crate::config::GeminiContextCompression {
         trigger_tokens: 20_000,
@@ -2403,8 +2407,8 @@ fn compact_prefaces_keep_distinct_reasoning_and_fall_back_for_large_unique_notes
         .map(|line| {
             format!("// Distinct reasoning line {line}: check bounds and preserve indices.\n")
         })
-        .collect::<String>()
-        + "fn solve() {}\n";
+        .collect::<String>();
+    state.code.push_str("fn solve() {}\n");
     assert_eq!(
         editor_read_text(&state, None),
         crate::agent::read_editor_text(

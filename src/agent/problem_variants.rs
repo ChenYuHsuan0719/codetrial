@@ -3,7 +3,7 @@
 use super::ProblemVariant;
 
 #[rustfmt::skip]
-pub const PROBLEM_VARIANTS: &[(&str, ProblemVariant)] = &[
+pub(super) const PROBLEM_VARIANTS: &[(&str, ProblemVariant)] = &[
     ("valid-parentheses", ProblemVariant {
         title: "Template Delimiter Audit",
         page: "template-delimiter-audit",
