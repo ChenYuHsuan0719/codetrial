@@ -349,5 +349,25 @@
   {
     "q": "write a short blog post with tips for staying calm in a live mock coding interview",
     "expect": []
+  },
+  {
+    "q": "explain how the borrow checker treats a closure that captures by move",
+    "expect": []
+  },
+  {
+    "q": "cargo fails to download a crate behind a proxy, how do I debug it",
+    "expect": []
+  },
+  {
+    "q": "which clippy version ships with a given toolchain",
+    "expect": []
+  },
+  {
+    "q": "benchmark two JSON parsers in Rust, which crate is faster",
+    "expect": []
+  },
+  {
+    "q": "bump the Rust toolchain to the next stable",
+    "expect": []
   }
 ]

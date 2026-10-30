@@ -2665,6 +2665,10 @@ DANGLING_REPORT = {
 }
 
 
+def skill(name, description="Does a thing.", body="# Skill\n"):
+    return f"---\nname: {name}\ndescription: {description}\n---\n\n{body}"
+
+
 class SkillRefsTests(unittest.TestCase):
     def check(self, refs, extra=()):
         with tempfile.TemporaryDirectory() as repo:
@@ -2678,7 +2682,7 @@ class SkillRefsTests(unittest.TestCase):
                 "scripts/test.sh": "#!/bin/sh\ncase $1 in --fixture) ;; esac\n",
                 "src/main.rs": "fn main() {}\n",
                 "Cargo.toml": "[package]\n",
-                ".claude/skills/codetrial-verify/SKILL.md": "# Verify\n",
+                ".claude/skills/codetrial-verify/SKILL.md": skill("codetrial-verify"),
                 ".claude/skills/fixture/guide.md": "# Guide\n",
                 ".claude/skills/fixture/target.md": GOOD_TARGET,
                 ".claude/skills/fixture/refs.md": refs,
@@ -2705,6 +2709,39 @@ class SkillRefsTests(unittest.TestCase):
         lines = result.stdout.splitlines()
         self.assertEqual(set(lines), DANGLING_REPORT)
         self.assertEqual(len(lines), len(DANGLING_REPORT))
+
+    def test_frontmatter_must_name_the_directory_and_describe_it(self):
+        base = ".claude/skills/"
+        result = self.check(
+            RESOLVING,
+            {
+                base + "good/SKILL.md": skill("good", ">\n  Folded\n  text."),
+                base + "renamed/SKILL.md": skill("other"),
+                base + "Bad_Name/SKILL.md": skill("Bad_Name"),
+                base + "mute/SKILL.md": skill("mute", ""),
+                base + "bare/SKILL.md": "# No frontmatter\n",
+                # Valid YAML spellings: a quoted name and a trailing comment
+                # pass, and an empty quoted or comment-only description fails.
+                base + "quoted/SKILL.md": skill('"quoted"', "Quoted name."),
+                base + "noted/SKILL.md": skill("noted # routing name"),
+                base + "dq/SKILL.md": skill("dq", '""'),
+                base + "sq/SKILL.md": skill("sq", "''"),
+                base + "todo/SKILL.md": skill("todo", "# TODO"),
+            },
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                f"{base}Bad_Name/SKILL.md: name 'Bad_Name' is not lowercase-hyphen",
+                f"{base}bare/SKILL.md: frontmatter missing",
+                f"{base}dq/SKILL.md: description empty",
+                f"{base}mute/SKILL.md: description empty",
+                f"{base}renamed/SKILL.md: name other does not match its directory",
+                f"{base}sq/SKILL.md: description empty",
+                f"{base}todo/SKILL.md: description empty",
+            ],
+        )
 
     def test_a_rules_map_names_rules_that_exist_and_paths_that_do(self):
         rules = ".claude/skills/fixture/rules/"
