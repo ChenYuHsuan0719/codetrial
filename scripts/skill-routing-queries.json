@@ -329,6 +329,24 @@
     ]
   },
   {
+    "q": "clippy says `#[allow]` attribute found in src/web/token.rs, can I just add a reason and keep it, or what is the rule here",
+    "expect": [
+      "codetrial-rust"
+    ]
+  },
+  {
+    "q": "src/livekit/session.rs is getting huge, the rust-style gate says it is over its ceiling, how do I split it and fix the ceiling",
+    "expect": [
+      "codetrial-rust"
+    ]
+  },
+  {
+    "q": "refactor this function that takes &Vec<String> and casts an i64 with `as usize`, make the Rust cleaner",
+    "expect": [
+      "codetrial-rust"
+    ]
+  },
+  {
     "q": "write a short blog post with tips for staying calm in a live mock coding interview",
     "expect": []
   }
