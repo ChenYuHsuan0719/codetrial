@@ -114,12 +114,12 @@ fn a_resume_offset_is_believed_only_when_it_can_be_read_exactly() {
 
 #[test]
 fn a_service_account_without_a_key_is_refused_at_startup() {
-    let now = Arc::new(|| 0);
+    let now: Arc<dyn Fn() -> i64 + Send + Sync> = Arc::new(|| 0);
     assert!(
-        GoogleDelivery::new("{}", "bucket", "drive", now.clone()).is_err(),
+        GoogleDelivery::new("{}", "bucket", "drive", Arc::clone(&now)).is_err(),
         "a credential this broken must stop a deployment, not an interview"
     );
-    assert!(GoogleDelivery::new("not json", "bucket", "drive", now.clone()).is_err());
+    assert!(GoogleDelivery::new("not json", "bucket", "drive", Arc::clone(&now)).is_err());
 
     // Base64 that decodes and is not a key. Without the `ring` check this was
     // accepted at startup and failed at the first delivery, which is the
@@ -471,7 +471,7 @@ async fn transfer_with_expiry(
     let now = Arc::new(AtomicI64::new(0));
     let stub = Arc::new(Stub {
         base: base.clone(),
-        now: now.clone(),
+        now: Arc::clone(&now),
         expire_after,
         token_fails,
         seen: std::sync::Mutex::new(Vec::new()),
@@ -479,7 +479,7 @@ async fn transfer_with_expiry(
     let router = axum::Router::new()
         .fallback(answer)
         .layer(DefaultBodyLimit::disable())
-        .with_state(stub.clone());
+        .with_state(std::sync::Arc::clone(&stub));
     let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
 
     let mut delivery = delivery_reading_from(base.clone());
@@ -623,7 +623,7 @@ async fn the_token_refreshes_at_the_sixty_second_margin() {
     delivery.credentials.token_uri = format!("{base}/token");
     let clock = Arc::new(AtomicI64::new(59));
     delivery.now = Arc::new({
-        let clock = clock.clone();
+        let clock = std::sync::Arc::clone(&clock);
         move || clock.load(Ordering::SeqCst)
     });
     *delivery.token.lock().await = Some(CachedToken {

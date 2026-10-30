@@ -1273,7 +1273,7 @@ async fn live_checkpoint_declined_behavioral_quality() {
         while let Some(event) = session.next_event().await {
             match event {
                 GeminiEvent::OutputTranscript(fragment) | GeminiEvent::Text(fragment) => {
-                    reply.push_str(&fragment)
+                    reply.push_str(&fragment);
                 }
                 GeminiEvent::ToolCall(calls) => {
                     calls_seen += calls.len();
@@ -1404,7 +1404,7 @@ async fn live_checkpoint_positive_behavioral_quality() {
         while let Some(event) = session.next_event().await {
             match event {
                 GeminiEvent::OutputTranscript(fragment) | GeminiEvent::Text(fragment) => {
-                    reply.push_str(&fragment)
+                    reply.push_str(&fragment);
                 }
                 GeminiEvent::ToolCall(calls) => {
                     calls_seen += calls.len();
@@ -1516,7 +1516,7 @@ async fn live_checkpoint_editor_quality() {
         let prefix = if inspect_notes {
             let mut lines = prefix.lines().collect::<Vec<_>>();
             lines[89] = "// Candidate plan: sort value/index pairs and use two pointers.";
-            lines.join("\n") + "\n"
+            format!("{}\n", lines.join("\n"))
         } else {
             prefix
         };

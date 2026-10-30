@@ -2596,9 +2596,10 @@ fn record_evidence(
         .get("confidence")
         .and_then(json_int)
         .ok_or("invalid confidence")?;
-    if !(0..=100).contains(&confidence) {
-        return Err("invalid confidence");
-    }
+    let confidence = u8::try_from(confidence)
+        .ok()
+        .filter(|confidence| *confidence <= 100)
+        .ok_or("invalid confidence")?;
     let summary = args
         .get("summary")
         .and_then(serde_json::Value::as_str)
@@ -2714,7 +2715,7 @@ fn record_evidence(
             phase,
             source,
             kind,
-            confidence as u8,
+            confidence,
             summary,
             crate::current_epoch_millis(),
         ),
@@ -3509,7 +3510,8 @@ pub(crate) fn duration_from_metadata(value: Option<&serde_json::Value>) -> u32 {
         .filter(|value| python_truthy(value))
         .and_then(json_int)
         .map_or(DEFAULT_DURATION_MIN, |duration| {
-            duration.clamp(MIN_DURATION_MIN.into(), MAX_DURATION_MIN.into()) as u32
+            u32::try_from(duration.clamp(MIN_DURATION_MIN.into(), MAX_DURATION_MIN.into()))
+                .expect("a duration clamped to u32 bounds fits in u32")
         })
 }
 

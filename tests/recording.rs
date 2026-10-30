@@ -1,4 +1,8 @@
-#![allow(clippy::panic, clippy::unwrap_used)] // see [lints.clippy] in Cargo.toml
+#![expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "a test that fails by panicking is working as intended"
+)]
 
 //! The recordings table, checked against a real SQLite file rather than
 //! against the `CREATE TABLE` string that produced it.
@@ -656,8 +660,8 @@ pub(crate) mod lifecycle {
         let provider = FakeProvider::arc();
         let clock = TestClock::new(1_000);
         let recorder = Recorder {
-            provider: provider.clone(),
-            clock: clock.clone(),
+            provider: Arc::<FakeProvider>::clone(&provider),
+            clock: Arc::<TestClock>::clone(&clock),
 
             // Retention is the one path that needs a delivery provider on the
             // recorder, and the tests that exercise it put their own fake here.
@@ -1942,24 +1946,24 @@ mod failure {
             let recording = transferring(&accounts, &recorder).await;
             assert_eq!(delivery_attempts(&accounts, &recording.id).unwrap(), None);
 
-            assert_eq!(
-                codetrial::recording::requeue_orphaned_deliveries(&accounts, clock.now()).unwrap(),
-                1
-            );
-            assert_eq!(
-                codetrial::recording::requeue_orphaned_deliveries(&accounts, clock.now()).unwrap(),
-                0,
-                "a queue that already knows is not told twice"
-            );
-
-            // And the sweep repairs before it reads: a restart longer than the
-            // stale window leaves exactly this row, and a sweep that read it as
-            // stale first would fail the recording it had just queued.
+            // Only the sweep runs, and it repairs before it reads: a sweep that
+            // read the row as stale first would fail what it had just queued.
             clock.advance(codetrial::recording::STALE_SECONDS * 2);
             codetrial::recording::sweep_recordings(&accounts, &recorder).await;
             assert_eq!(
                 state_of(&accounts, &recording.id),
                 RecordingState::Transferring
+            );
+            assert!(
+                delivery_attempts(&accounts, &recording.id)
+                    .unwrap()
+                    .is_some(),
+                "the sweep left an orphaned delivery out of the queue"
+            );
+            assert_eq!(
+                codetrial::recording::requeue_orphaned_deliveries(&accounts, clock.now()).unwrap(),
+                0,
+                "a queue that already knows is not told twice"
             );
 
             let delivery = FakeDelivery::default();
@@ -2435,7 +2439,7 @@ mod failure {
             );
 
             let recorder = codetrial::recording::Recorder {
-                delivery: Some(delivery.clone()),
+                delivery: Some(Arc::<FakeDelivery>::clone(&delivery)),
                 ..recorder
             };
             let outcome = sweep_recordings(&accounts, &recorder).await;
@@ -2494,7 +2498,7 @@ mod failure {
 
             // The orphan sweep stops it, and then it is due.
             let recorder = codetrial::recording::Recorder {
-                delivery: Some(delivery.clone()),
+                delivery: Some(Arc::<FakeDelivery>::clone(&delivery)),
                 ..recorder
             };
             clock.advance(codetrial::recording::STALE_SECONDS + 1);
@@ -2728,7 +2732,7 @@ mod failure {
             assert_eq!(asked.as_deref(), Some("operator"));
 
             let recorder = codetrial::recording::Recorder {
-                delivery: Some(delivery.clone()),
+                delivery: Some(Arc::<FakeDelivery>::clone(&delivery)),
                 ..recorder
             };
             assert_eq!(sweep_recordings(&accounts, &recorder).await.deleted, 1);
@@ -2816,7 +2820,7 @@ mod failure {
             assert_eq!(due.len(), 1, "no deadline to wait for");
 
             let recorder = codetrial::recording::Recorder {
-                delivery: Some(delivery.clone()),
+                delivery: Some(Arc::<FakeDelivery>::clone(&delivery)),
                 ..recorder
             };
             assert_eq!(sweep_recordings(&accounts, &recorder).await.deleted, 1);

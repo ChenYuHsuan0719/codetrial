@@ -186,7 +186,7 @@ impl RoomService {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let seen = Arc::new(Mutex::new(Vec::new()));
-        let recorded = seen.clone();
+        let recorded = Arc::clone(&seen);
         tokio::spawn(async move {
             let mut replies = replies.into_iter().peekable();
             let mut last = (200, "{}");

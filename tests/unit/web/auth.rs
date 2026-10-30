@@ -100,7 +100,7 @@ async fn github_profiles_require_positive_ids_and_logins() {
 #[tokio::test]
 async fn oauth_redirect_cannot_replay_client_secret() {
     let forwarded = Arc::new(AtomicUsize::new(0));
-    let observed = forwarded.clone();
+    let observed = std::sync::Arc::clone(&forwarded);
     let router = axum::Router::new()
         .route(
             "/login/oauth/access_token",
@@ -131,7 +131,7 @@ async fn oauth_redirect_cannot_replay_client_secret() {
 #[tokio::test]
 async fn api_redirects_cannot_answer_for_github() {
     let forwarded = Arc::new(AtomicUsize::new(0));
-    let observed = forwarded.clone();
+    let observed = std::sync::Arc::clone(&forwarded);
     let redirect = || async {
         (
             StatusCode::TEMPORARY_REDIRECT,

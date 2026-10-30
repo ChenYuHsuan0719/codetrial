@@ -40,7 +40,7 @@
 /// The issuer and the signature, and nothing else: not the algorithm header,
 /// the expiry, or the grant. That is the whole claim a caller may make of it,
 /// that this token is this project's. It is not an emulation of LiveKit.
-pub fn livekit_token_matches(token: &str, api_key: &str, api_secret: &str) -> bool {
+pub(crate) fn livekit_token_matches(token: &str, api_key: &str, api_secret: &str) -> bool {
     if codetrial::token::livekit_token_issuer(token).as_deref() != Some(api_key) {
         return false;
     }

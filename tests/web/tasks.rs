@@ -34,6 +34,10 @@ struct TaskDispatcher {
     tasks: std::sync::Mutex<Vec<PinnedTask>>,
 }
 impl RoomDispatcher for TaskDispatcher {
+    #[expect(
+        clippy::panic_in_result_fn,
+        reason = "a test double: a wrong dispatch is the test failing"
+    )]
     fn ensure_agent(
         &self,
         _: &str,
@@ -258,7 +262,10 @@ async fn task_mode_opens_the_default_task_at_the_home_address_for_a_guest() {
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = spawn_test_server(
         listener,
-        codetrial::web::web_service_with_dispatcher(config, Some(dispatcher.clone())),
+        codetrial::web::web_service_with_dispatcher(
+            config,
+            Some(Arc::<tasks::TaskDispatcher>::clone(&dispatcher)),
+        ),
     );
     let client = http_client_builder()
         .redirect(reqwest::redirect::Policy::none())
@@ -428,7 +435,10 @@ async fn task_admission_needs_the_rules_and_calibration_replays_one_room_and_tak
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = spawn_test_server(
         listener,
-        codetrial::web::web_service_with_dispatcher(config, Some(dispatcher.clone())),
+        codetrial::web::web_service_with_dispatcher(
+            config,
+            Some(Arc::<tasks::TaskDispatcher>::clone(&dispatcher)),
+        ),
     );
     let client = http_client();
     let public = client
@@ -783,7 +793,7 @@ async fn spawn_device_github(answers: Vec<(&'static str, Value)>) -> (String, Te
         .route(
             "/login/oauth/access_token",
             axum::routing::post(move |body: String| {
-                let answers = answers.clone();
+                let answers = Arc::clone(&answers);
                 async move {
                     let posted: Value = serde_json::from_str(&body).unwrap();
                     let (code, answer) = answers.lock().unwrap().pop_front().unwrap();

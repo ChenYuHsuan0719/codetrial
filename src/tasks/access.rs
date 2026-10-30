@@ -464,7 +464,7 @@ impl TaskService {
             Err(OpenError::Invalid(_)) => return Err(AccessError::new("package_invalid")),
         };
         let unlocked = Unlocked {
-            set: set.clone(),
+            set: Arc::clone(&set),
             site_clock: site_time,
         };
         if set.config.closed(unlocked.now(now)) {
@@ -476,7 +476,7 @@ impl TaskService {
             .unwrap_or_else(|e| e.into_inner())
             .remember((owner_id, assignment.clone()), unlocked);
         Ok(json!({"setId": set_id, "version": version,
-            "tasks": set.records.iter().map(|(id, record)| json!({"id": id, "title": Exercise(record.clone()).title()})).collect::<Vec<_>>()}))
+            "tasks": set.records.iter().map(|(id, record)| json!({"id": id, "title": Exercise(Arc::clone(record)).title()})).collect::<Vec<_>>()}))
     }
 
     /// The public projection of one task in an unlocked set.
@@ -490,21 +490,23 @@ impl TaskService {
         let set = if assignment.is_built_in() {
             super::package::built_in_set()
         } else {
-            self.0
-                .state
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .unlocked
-                .get(&(owner_id, assignment.clone()))
-                .ok_or_else(|| AccessError::new("unlock_required"))?
-                .set
-                .clone()
+            Arc::clone(
+                &self
+                    .0
+                    .state
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .unlocked
+                    .get(&(owner_id, assignment.clone()))
+                    .ok_or_else(|| AccessError::new("unlock_required"))?
+                    .set,
+            )
         };
         let record = set
             .records
             .get(task_id)
             .ok_or_else(|| AccessError::new("task_not_found"))?;
-        let exercise = Exercise(record.clone());
+        let exercise = Exercise(Arc::clone(record));
         let config = &set.config;
         let starters: serde_json::Map<String, Value> = exercise
             .languages()
@@ -530,7 +532,10 @@ impl TaskService {
 
     /// Starts an attempt, or replays the one a retried request key already
     /// started.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "each argument is a separate input of the one admission decision"
+    )]
     pub fn begin_admission(
         &self,
         owner_id: i64,
@@ -582,13 +587,13 @@ impl TaskService {
             if unlocked.set.config.closed(unlocked.now(now)) {
                 return Err(AccessError::new("set_closed"));
             }
-            unlocked.set.clone()
+            Arc::clone(&unlocked.set)
         };
-        let record = set
-            .records
-            .get(task_id)
-            .ok_or_else(|| AccessError::new("task_not_found"))?
-            .clone();
+        let record = Arc::clone(
+            set.records
+                .get(task_id)
+                .ok_or_else(|| AccessError::new("task_not_found"))?,
+        );
         if !record.sidecar().languages.contains(&preparation.language) {
             return Err(AccessError::new("language_unsupported"));
         }

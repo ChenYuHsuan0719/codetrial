@@ -757,7 +757,7 @@ fn document_grounding_requires_consent_and_is_bounded_as_untrusted_prompt_data()
             example_drawing_enabled: false,
             candidate_led_enabled: false,
             profile: InterviewProfile::default(),
-            grounding: grounding.clone(),
+            grounding,
             interview_loop: InterviewLoop::CodingBehavioral,
             examples_hidden: false,
             interview_mode: InterviewMode::Coding,
@@ -1104,7 +1104,7 @@ fn profile_text_is_bounded_and_prompt_context_cannot_change_the_coding_rubric() 
             accent: None,
             example_drawing_enabled: false,
             candidate_led_enabled: false,
-            profile: profile.clone(),
+            profile,
             grounding: InterviewGrounding::default(),
             interview_loop: InterviewLoop::CodingBehavioral,
             examples_hidden: false,
@@ -1254,8 +1254,7 @@ fn coding_only_prompt_removes_the_behavioral_round_contract() {
             grounding: (InterviewGrounding {
                 requirements: vec!["Owns incident response".to_string()],
                 ..InterviewGrounding::default()
-            })
-            .clone(),
+            }),
             interview_loop: InterviewLoop::CodingOnly,
             examples_hidden: false,
             interview_mode: InterviewMode::Coding,

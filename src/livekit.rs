@@ -132,12 +132,23 @@ use rooms::{evict_duplicate_agent, isolate_local_agent};
 // credentials a Setup form was given, and it names it through this module.
 pub(crate) use rooms::validate_livekit_credentials;
 
-// Room cleanup runs on the web server, not in the agent. The allow goes when
-// the peer sweeper calls it.
-#[allow(dead_code, unused_imports)]
-pub(crate) use room_service::delete_room;
-
+// The test module reaches every item of these two through `use super::*`, so
+// the hub keeps the globs instead of a list that grows with each test.
+#[cfg_attr(
+    not(test),
+    expect(
+        clippy::wildcard_imports,
+        reason = "tests read the hub through super::*"
+    )
+)]
 use media::*;
+#[cfg_attr(
+    not(test),
+    expect(
+        clippy::wildcard_imports,
+        reason = "tests read the hub through super::*"
+    )
+)]
 use turn::*;
 
 const GEMINI_OUTPUT_AUDIO_SAMPLE_RATE: u32 = 24_000;
@@ -1123,6 +1134,10 @@ impl Handover {
 /// a handle existed, resumption was allowed, there was a speech handoff, and
 /// that rule alone kept the handle from being offered; a handle that was
 /// offered and then refused, or never existed, is a failure to resume.
+#[expect(
+    clippy::fn_params_excessive_bools,
+    reason = "five independent observations of one resume attempt, tested as a truth table"
+)]
 fn fallback_reason(
     resumed: bool,
     speech_handoff: bool,
@@ -1774,7 +1789,7 @@ async fn open_session<'a>(
     let tool_ack = Arc::new(std::sync::OnceLock::new());
     let mut tool_ack_task = None;
     if config.gemini_tool_ack {
-        let (keys, slot) = (keys.clone(), tool_ack.clone());
+        let (keys, slot) = (Arc::clone(keys), Arc::clone(&tool_ack));
         let (voice, accent) = (boot.voice.to_string(), boot.accent.map(str::to_string));
         let task = tokio::spawn(async move {
             match crate::gemini::tool_ack_clip(

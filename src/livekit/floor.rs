@@ -28,7 +28,7 @@ pub(super) struct Record {
 }
 
 impl Record {
-    pub fn log_line(&self, room: &str, session: u64, socket: u64, clock: &str) -> String {
+    pub(super) fn log_line(&self, room: &str, session: u64, socket: u64, clock: &str) -> String {
         fn value(ms: Option<u128>) -> String {
             ms.map_or_else(|| "unknown".into(), |ms| ms.to_string())
         }
@@ -114,7 +114,7 @@ impl FloorTracker {
     /// At most one pause and one overlap are retained, even without provider
     /// END.
     /// A responded pause waits for START to classify cut_off using first audio.
-    pub fn observe(&mut self, event: Event, now: Instant, emit: &mut impl FnMut(Record)) {
+    pub(super) fn observe(&mut self, event: Event, now: Instant, emit: &mut impl FnMut(Record)) {
         match event {
             Event::Start { generating, ahead } => {
                 if self.active {

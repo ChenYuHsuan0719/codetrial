@@ -160,7 +160,7 @@ async fn interviews_persist_consent_before_egress() {
 async fn consent_withdrawal_stops_egress() {
     let provider = std::sync::Arc::new(FakeRecordingProvider::default());
     let (base, server, path, client, cookie) =
-        recorded_server_with_provider("consent-withdrawal", provider.clone()).await;
+        recorded_server_with_provider("consent-withdrawal", std::sync::Arc::clone(&provider)).await;
     let interview = start_interview(&client, &base, &cookie).await;
 
     // A real recording, started through the route a candidate reaches, so the
@@ -271,7 +271,7 @@ async fn consent_withdrawal_stops_egress() {
 async fn a_second_start_reports_the_state_the_row_holds() {
     let provider = std::sync::Arc::new(FakeRecordingProvider::default());
     let (base, server, path, client, cookie) =
-        recorded_server_with_provider("second-start", provider.clone()).await;
+        recorded_server_with_provider("second-start", std::sync::Arc::clone(&provider)).await;
     let interview = start_interview(&client, &base, &cookie).await;
     assert_eq!(
         client
@@ -327,7 +327,7 @@ async fn a_second_start_reports_the_state_the_row_holds() {
 async fn a_start_overtaken_mid_flight_stops_its_own_job() {
     let provider = std::sync::Arc::new(FakeRecordingProvider::default());
     let (base, server, path, client, cookie) =
-        recorded_server_with_provider("overtaken", provider.clone()).await;
+        recorded_server_with_provider("overtaken", std::sync::Arc::clone(&provider)).await;
     let interview = start_interview(&client, &base, &cookie).await;
     assert_eq!(
         client
@@ -385,7 +385,7 @@ async fn a_start_overtaken_mid_flight_stops_its_own_job() {
 async fn a_completion_with_no_file_fails_the_recording() {
     let provider = std::sync::Arc::new(FakeRecordingProvider::default());
     let (base, server, path, client, cookie) =
-        recorded_server_with_provider("empty-completion", provider.clone()).await;
+        recorded_server_with_provider("empty-completion", std::sync::Arc::clone(&provider)).await;
     let interview = start_interview(&client, &base, &cookie).await;
     assert_eq!(
         client
@@ -578,7 +578,8 @@ async fn a_refused_interview_leaves_its_consent_unspent() {
     dispatcher
         .at_capacity
         .store(true, std::sync::atomic::Ordering::Relaxed);
-    let (base, server) = spawn_web_server_with_dispatcher(config, dispatcher.clone()).await;
+    let (base, server) =
+        spawn_web_server_with_dispatcher(config, std::sync::Arc::clone(&dispatcher)).await;
     let client = http_client();
 
     let interview = start_interview(&client, &base, &cookie).await;
@@ -1458,7 +1459,7 @@ async fn each_webhook_kind_moves_the_row_and_answers_for_itself() {
     // the real one answers a test server with 401.
     let provider = std::sync::Arc::new(FakeRecordingProvider::default());
     let (base, server, path, client, _cookie) =
-        recorded_server_with_provider("webhook-kinds", provider.clone()).await;
+        recorded_server_with_provider("webhook-kinds", std::sync::Arc::clone(&provider)).await;
 
     // Fresh, so the sweeper that started with the server leaves this alone.
     let now = codetrial::current_epoch_seconds_i64();
@@ -1617,7 +1618,10 @@ async fn a_full_page_offers_a_cursor_only_when_more_follows() {
     let page = codetrial::recording::RECORDING_PAGE;
     insert(page);
     let body = listing().await;
-    assert_eq!(body["recordings"].as_array().unwrap().len(), page as usize);
+    assert_eq!(
+        body["recordings"].as_array().unwrap().len(),
+        usize::try_from(page).unwrap()
+    );
     assert_eq!(
         body["nextCursor"],
         Value::Null,
@@ -1628,7 +1632,7 @@ async fn a_full_page_offers_a_cursor_only_when_more_follows() {
     let body = listing().await;
     assert_eq!(
         body["recordings"].as_array().unwrap().len(),
-        page as usize,
+        usize::try_from(page).unwrap(),
         "a page is still a page"
     );
     assert!(

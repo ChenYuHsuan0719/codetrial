@@ -2,7 +2,7 @@ use rusqlite::OptionalExtension;
 
 use crate::accounts::Accounts;
 
-use super::*;
+use super::{Clock, RecordingState};
 
 /// A recording, as the routes and the sweeper read it.
 #[derive(Debug, Clone, PartialEq, Eq)]

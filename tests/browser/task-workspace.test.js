@@ -3018,7 +3018,7 @@ test("the editor leaves input-method keys and chords alone, and its indents can 
     await page.keyboard.press("End");
     await page.keyboard.press("Enter");
     assert.equal(await page.inputValue("#code"), "if x:\n    ");
-    await page.keyboard.press("Control+z");
+    await page.keyboard.press("ControlOrMeta+Z");
     assert.equal(await page.inputValue("#code"), "if x:");
     // F2, not Escape, lets Tab leave the editor: Escape would also take the
     // browser out of fullscreen and end the attempt.

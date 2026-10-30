@@ -7,7 +7,10 @@ one. A single-project deployment needs none of this and is unaffected by it.
 Before a room token is minted, the server uses cached periodic probes and probes
 only providers it tries until one is available. A fresh 429 excludes exhausted
 connection minutes and a fresh 401/403 excludes a refused credential. The log
-names the project and status without printing credentials. Replacing a configured
+names the project and status without printing credentials. Startup rotation
+summaries show provider ids and endpoint authorities (host and optional port);
+provider debug output shows the host. Neither prints URL userinfo, paths, query
+strings or fragments. Replacing a configured
 credential takes effect after restarting the server.
 
 ## Adding a project

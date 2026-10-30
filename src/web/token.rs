@@ -309,7 +309,7 @@ pub fn token_response(
     let grounding = crate::agent::sanitize_interview_grounding(request.get("interviewGrounding"));
     let mut metadata = json!({
         "problemId": problem_id,
-        "durationMin": duration_min.clone(),
+        "durationMin": duration_min,
         "interviewLoop": interview_loop.as_str(),
         "interviewMode": interview_mode.as_str(),
         "interviewProfile": crate::agent::interview_profile_json(&profile),
@@ -443,7 +443,10 @@ pub(crate) fn token_duration_min(value: Option<&Value>, recording_max_min: Optio
 /// answers a candidate cannot tell apart: no provider is a server the operator
 /// never finished setting up, and every provider spent is a server that worked
 /// until this morning.
-#[allow(clippy::result_large_err)] // Responses are immediately returned by HTTP handlers.
+#[expect(
+    clippy::result_large_err,
+    reason = "the error is the response sent to the client"
+)]
 pub(crate) async fn reserved_room(
     state: &AppState,
     require_fresh_room: bool,
@@ -496,7 +499,10 @@ enum AdmittedCaller {
 /// Guests and authenticated callers use separate IP-based token limits,
 /// so anonymous traffic cannot spend a signed-in candidate's allowance.
 /// Guests are admitted only when recording is disabled.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the error is the response sent to the client"
+)]
 async fn admit_caller(
     state: &AppState,
     headers: &axum::http::HeaderMap,
@@ -589,7 +595,7 @@ async fn dispatch_or_release_consent(
 
     let no_show = owner.zip(interview).map(|(owner, interview)| {
         NoShowConsent::new(
-            owner.accounts.clone(),
+            Arc::clone(&owner.accounts),
             interview.clone(),
             owner.user.id,
             room_name.to_string(),
@@ -614,7 +620,7 @@ async fn dispatch_or_release_consent(
                  reason=claim_changed_or_pending_interview"
             ),
             Err(error) => {
-                eprintln!("could not release interview consent after a refused dispatch: {error}")
+                eprintln!("could not release interview consent after a refused dispatch: {error}");
             }
         }
     }

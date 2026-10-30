@@ -205,6 +205,8 @@ gate()
             rust - shared,
             {
                 "clippy",
+                "rustdoc",
+                "workspace-lints",
                 "cargo-test",
                 "browser-server-tests",
                 "cargo-deny",
@@ -717,6 +719,57 @@ printf 'python:%s\\n' "$*" >> "$CALLS"
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual("fetch:clang" in result.stderr, fetched)
 
+    def test_gate_python_floor_is_the_version_that_ships_tomllib(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for minor in (9, 10, 11, 12):
+                with self.subTest(minor=minor):
+                    python = Path(directory) / f"python3.{minor}"
+                    support.write_executable(
+                        python,
+                        "#!/bin/sh\n"
+                        f"exec {shlex.quote(sys.executable)} -c "
+                        + shlex.quote(
+                            f"import sys; sys.version_info = (3, {minor}); "
+                            "exec(sys.argv[1])"
+                        )
+                        + ' "$2"\n',
+                    )
+                    result = subprocess.run(
+                        [
+                            "sh",
+                            "-c",
+                            f"python_ok() {{\n{function_body('python_ok')}\n}}\n"
+                            'python_ok "$1"',
+                            "probe",
+                            str(python),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, 0 if minor >= 11 else 1)
+
+    def test_an_explicit_unsupported_python_stops_before_running_gates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            python = Path(directory) / "old python"
+            support.write_executable(python, "#!/bin/sh\nexit 1\n")
+            for lane in ("portable", "rust"):
+                with self.subTest(lane=lane):
+                    result, gates = self.run_lane(lane, env={"PYTHON": str(python)})
+                    self.assertEqual(result.returncode, 2, result.stderr)
+                    self.assertEqual(gates, [])
+                    self.assertIn("Python 3.11+", result.stderr)
+
+    def test_browser_without_python_gates_runs_on_an_older_python(self):
+        with tempfile.TemporaryDirectory() as directory:
+            python = Path(directory) / "old python"
+            support.write_executable(python, "#!/bin/sh\nexit 1\n")
+            result, gates = self.run_lane("browser", env={"PYTHON": str(python)})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(gates)
+            self.assertNotIn("rust-style", gates)
+            self.assertNotIn("workspace-lints", gates)
+
     def test_only_the_portable_lane_sets_up_the_packaging_python(self):
         # As if the Python found had no `cryptography`, so the gate would set
         # up the instructor tool's environment for the packaging tests.
@@ -927,6 +980,7 @@ class BuildHooksTests(unittest.TestCase):
             shutil.copy(ROOT / "scripts/install-git-hooks.sh", repo / "scripts")
             (repo / "Cargo.toml").write_text(
                 '[workspace]\nmembers = ["scripts/hook-check"]\nresolver = "3"\n'
+                "[workspace.lints]\n"
             )
             subprocess.run(["git", "init", "-q"], cwd=repo, env=env, check=True)
 

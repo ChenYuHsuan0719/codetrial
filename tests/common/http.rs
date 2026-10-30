@@ -10,12 +10,12 @@ use std::time::Duration;
 /// one.
 const FIXTURE_TIMEOUT: Duration = Duration::from_secs(60);
 
-pub fn client_builder() -> reqwest::ClientBuilder {
+pub(crate) fn client_builder() -> reqwest::ClientBuilder {
     // The production trust store; see `bundled_roots_client_builder`.
     codetrial::bundled_roots_client_builder().no_proxy()
 }
 
-pub fn client() -> reqwest::Client {
+pub(crate) fn client() -> reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT
         .get_or_init(|| {

@@ -287,7 +287,7 @@ fn strict_report_validation_is_atomic_and_server_owns_hints() {
     assert!(!report["incomplete"].as_bool().unwrap_or(false));
     assert_eq!(report["hintsUsed"], 3);
 
-    let mut hostile = valid.clone();
+    let mut hostile = valid;
     hostile["codingScore"] = json!(120);
     hostile["decision"] = json!("MAYBE");
     hostile
@@ -399,20 +399,20 @@ fn report_naming_the_published_problem_is_refused() {
         (
             "$.codingFeedback.strengths[0]",
             Box::new(|report: &mut Value| {
-                report["codingFeedback"]["strengths"][0] = json!("Found this on LeetCode.")
+                report["codingFeedback"]["strengths"][0] = json!("Found this on LeetCode.");
             }),
         ),
         (
             "$.communicationFeedback.improvements[0]",
             Box::new(|report: &mut Value| {
                 report["communicationFeedback"]["improvements"][0] =
-                    json!("Explain the Leet Code solution.")
+                    json!("Explain the Leet Code solution.");
             }),
         ),
         (
             "$.improvementPlan[0].drill",
             Box::new(|report: &mut Value| {
-                report["improvementPlan"][0]["drill"] = json!("Practice 3Sum.")
+                report["improvementPlan"][0]["drill"] = json!("Practice 3Sum.");
             }),
         ),
     ] {
@@ -477,13 +477,13 @@ fn strict_report_validation_rejects_each_semantic_drift_class() {
         (
             "duplicate phase",
             Box::new(|report| {
-                report["frameworkAssessment"]["phases"][9]["phase"] = json!("Action")
+                report["frameworkAssessment"]["phases"][9]["phase"] = json!("Action");
             }),
         ),
         (
             "unknown phase",
             Box::new(|report| {
-                report["frameworkAssessment"]["phases"][0]["phase"] = json!("Warmup")
+                report["frameworkAssessment"]["phases"][0]["phase"] = json!("Warmup");
             }),
         ),
         (

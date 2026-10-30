@@ -86,7 +86,7 @@ text by design, and image bytes need their own counter.
 ## Gemini failures: mark the socket dead, keep the cause, keep failover
 
 Applies to: `src/gemini.rs`, `src/gemini/credentials.rs`, `src/livekit.rs`,
-`src/main.rs`, `src/config.rs`, `src/dispatch.rs`
+`src/main.rs`, `src/config*`, `src/dispatch.rs`
 
 A socket write that errors, as opposed to timing out, has to set `dead` and end
 the reader. An idle break has to do the same. Otherwise the next flush pays the
@@ -114,7 +114,7 @@ to load.
 
 ## Do not repurpose a timeout, and keep stated durations true
 
-Applies to: `src/livekit*.rs`, `src/config.rs`, `src/web/token.rs`
+Applies to: `src/livekit*.rs`, `src/config*`, `src/web/token.rs`
 
 A constant sized for one job changes meaning when it is reused.
 `RECONNECT_NOTICE_LIMIT` (1 s, for a droppable notice) made fatal for the ready

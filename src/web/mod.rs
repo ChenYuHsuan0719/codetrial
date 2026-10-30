@@ -219,7 +219,7 @@ pub(crate) struct AppState {
 
     /// Every timer this server started, held only so they stop when it does.
     /// Never read. Why that matters is on `BackgroundTasks`.
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "held only so the timers stop with the server")]
     background: Arc<BackgroundTasks>,
 
     // A separate bucket, for the same reason `/api/token` checks the session
@@ -269,13 +269,13 @@ pub(crate) struct AppState {
 pub(crate) fn open_accounts(login: GitHubLoginConfig) -> Option<Arc<Accounts>> {
     let accounts = Accounts::open(login)
         .inspect_err(|error| {
-            eprintln!("account database will not open, refusing account requests: {error}")
+            eprintln!("account database will not open, refusing account requests: {error}");
         })
         .ok()?;
     accounts
         .initialize_schema()
         .inspect_err(|error| {
-            eprintln!("account database will not initialize, refusing account requests: {error}")
+            eprintln!("account database will not initialize, refusing account requests: {error}");
         })
         .ok()?;
 
@@ -299,7 +299,7 @@ fn sweep_sessions_once(accounts: &Accounts) {
     match crate::accounts::sweep_expired_sessions(accounts, now) {
         Ok((0, 0)) => {}
         Ok((sessions, users)) => {
-            eprintln!("swept {sessions} expired session(s) and {users} throwaway account(s)")
+            eprintln!("swept {sessions} expired session(s) and {users} throwaway account(s)");
         }
         Err(error) => eprintln!("WARNING: session sweep failed: {error}"),
     }
@@ -391,7 +391,7 @@ pub(crate) fn spawn_session_sweeper(accounts: Arc<Accounts>) -> BackgroundTasks 
             // directly rather than `accounts::blocking`, whose `Result` this
             // has nothing to put in: the sweep reports its own failures, and a
             // task that did not finish is already reported by the join.
-            let accounts = accounts.clone();
+            let accounts = Arc::clone(&accounts);
             let _ = tokio::task::spawn_blocking(move || sweep_sessions_once(&accounts)).await;
         }
     });
@@ -438,7 +438,10 @@ pub(crate) fn web_router(
     let accounts = login.and_then(open_accounts);
     let mut background = BackgroundTasks::default();
     if let (Some(accounts), Some(recorder)) = (&accounts, &recorder) {
-        background.absorb(spawn_recording_workers(accounts.clone(), recorder.clone()));
+        background.absorb(spawn_recording_workers(
+            Arc::clone(accounts),
+            recorder.clone(),
+        ));
     }
     if let Some(accounts) = accounts.clone() {
         background.absorb(spawn_session_sweeper(accounts));
@@ -900,7 +903,12 @@ pub(crate) fn json_response(status: StatusCode, value: Value) -> Response {
 
 pub(crate) fn number_json(value: f64) -> Value {
     if value.fract() == 0.0 {
-        json!(value as u64)
+        #[expect(
+            clippy::cast_sign_loss,
+            reason = "a whole number below zero is written as 0 on the wire"
+        )]
+        let whole = value.max(0.0) as u64;
+        json!(whole)
     } else {
         json!(value)
     }

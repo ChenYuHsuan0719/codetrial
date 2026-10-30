@@ -19,14 +19,14 @@ esac
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
-# The Python under scripts/ and tests/ needs 3.9: dict union and
-# functools.cache. A distribution's python3 can be older than that while a newer
-# one sits beside it, and running the old one fails every Python gate on the
-# interpreter rather than on the code, so the first suitable one is taken:
-# python3 itself, then the newest versioned name. PYTHON names one outright.
+# The gate needs Python 3.11 for the Rust checker's standard-library TOML
+# parser. A distribution's python3 can be older than that while a newer one sits
+# beside it, and running the old one fails every Python gate on the interpreter
+# rather than on the code, so the first suitable one is taken: python3 itself,
+# then the newest versioned name. PYTHON names one outright.
 python_ok()
 {
-    "$1" -c 'import sys; sys.exit(sys.version_info < (3, 9))' > /dev/null 2>&1
+    "$1" -c 'import sys; sys.exit(sys.version_info < (3, 11))' > /dev/null 2>&1
 }
 
 has_cryptography()
@@ -43,14 +43,20 @@ has_cryptography()
 # tests that need a venv would skip under it. A PYTHON named outright is used as
 # it is.
 failed=""
+
+# The Rust lane audits workspace membership with Python too. Only the browser
+# lane runs no Python gates and can use a machine with an older interpreter.
+lane_runs_python=true
+if [ "$lane" = browser ]; then
+    lane_runs_python=false
+fi
 TASK_PYTHON=${CODETRIAL_TASK_TOOLS:-$ROOT/target/task-tools}/bin/python
 if [ -z "${PYTHON:-}" ] && python_ok "$TASK_PYTHON" \
     && has_cryptography "$TASK_PYTHON"; then
     PYTHON=$TASK_PYTHON
 fi
 if [ -z "${PYTHON:-}" ]; then
-    for candidate in python3 python3.14 python3.13 python3.12 python3.11 \
-        python3.10 python3.9; do
+    for candidate in python3 python3.15 python3.14 python3.13 python3.12 python3.11; do
         if python_ok "$candidate"; then
             PYTHON=$candidate
             break
@@ -66,9 +72,13 @@ if [ -z "${PYTHON:-}" ]; then
         fi
     fi
 fi
-if [ -z "${PYTHON:-}" ]; then
-    echo "no Python 3.9+ found; the Python gates will fail. Set PYTHON to one." >&2
-    PYTHON=python3
+
+PYTHON=${PYTHON:-}
+if $lane_runs_python && {
+    [ -z "$PYTHON" ] || ! python_ok "$PYTHON"
+}; then
+    echo "the test gate needs Python 3.11+ (tomllib); set PYTHON to a supported interpreter." >&2
+    exit 2
 fi
 
 # What this run did not check, collected as it goes and printed at the end.
@@ -359,9 +369,9 @@ desktop_gate()
         return 0
     fi
     target=$ROOT/target/desktop
-    cargo clippy --locked --all-targets --manifest-path "$manifest" \
+    cargo clippy --locked --workspace --all-targets --manifest-path "$manifest" \
         --target-dir "$target" -- -D warnings \
-        && cargo test --locked --manifest-path "$manifest" --target-dir "$target"
+        && cargo test --locked --workspace --manifest-path "$manifest" --target-dir "$target"
 }
 
 # The crates under vendor/ carry fixes upstream has not released. A bump that
@@ -532,6 +542,10 @@ src_test_bodies()
 }
 gate src-test-bodies src_test_bodies
 
+# What clippy has no lint for: the lint table staying strict, suppressions that
+# say why, no markers or CJK, and no file growing past its ceiling.
+gate rust-style "$PYTHON" "$ROOT/scripts/check-rust-style.py" --baseline origin/main
+
 # webrtc-sys needs Clang 21+ on Linux, and without one clippy and cargo-test
 # fail on a build script rather than on anything this tree did. The Makefile's
 # default, for a run that did not come through `make check`: a caller's own CXX
@@ -543,9 +557,11 @@ if in_lane rust && [ -z "${CXX:-}" ] && [ "$(uname -sm)" = "Linux x86_64" ] \
     CXX=$ROOT/target/clang/bin/clang++
     export CXX
 fi
-gate --lane rust clippy cargo clippy --locked --all-targets --manifest-path "$ROOT/Cargo.toml" -- -D warnings
+gate --lane rust clippy cargo clippy --locked --workspace --all-targets --manifest-path "$ROOT/Cargo.toml" -- -D warnings
+gate --lane rust workspace-lints "$PYTHON" "$ROOT/scripts/check-rust-style.py" --workspace
+gate --lane rust rustdoc cargo doc --locked --workspace --no-deps --manifest-path "$ROOT/Cargo.toml"
 gate release-msrv release_msrv_matches
-gate --lane rust cargo-test cargo test --locked --manifest-path "$ROOT/Cargo.toml"
+gate --lane rust cargo-test cargo test --locked --workspace --manifest-path "$ROOT/Cargo.toml"
 
 # These tests start the Rust server; running them before its build silently
 # skips.
@@ -583,6 +599,7 @@ gate calibration-fixtures "$PYTHON" "$ROOT/scripts/gen-calibration-fixtures.py" 
 gate calibration-tests unittest_gate "$ROOT/tests/test_calibrate_framework.py"
 gate gemini-usage-tests unittest_gate "$ROOT/tests/test_analyze_gemini_usage.py"
 gate audit-tests unittest_gate "$ROOT/tests/test_audit.py"
+gate rust-style-tests unittest_gate "$ROOT/tests/test_check_rust_style.py"
 gate test-gate-tests unittest_gate "$ROOT/tests/test_test_gate.py"
 gate mutants-plan-tests unittest_gate "$ROOT/tests/test_mutants_plan.py"
 gate mutants-install-tests unittest_gate "$ROOT/tests/test_mutants_install.py"

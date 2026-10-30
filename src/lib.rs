@@ -185,7 +185,7 @@ pub(crate) fn tls_config() -> &'static std::sync::Arc<rustls::ClientConfig> {
     })
 }
 
-/// A client builder on [`tls_config`], with no timeout. Without it reqwest 0.13
+/// A client builder on `tls_config`, with no timeout. Without it reqwest 0.13
 /// fails to build a client on a host with no certificate store. Use
 /// [`http_client`] unless a caller needs its own bounds.
 pub fn bundled_roots_client_builder() -> reqwest::ClientBuilder {

@@ -168,17 +168,37 @@ installed on every fresh runner.
 The gate picks its own compiler and Python, so running it directly builds with
 the same Clang `make` would. On Linux x86_64 with no `CXX` set, it uses the checksum-pinned
 Clang that `make` fetches into `target/clang`, fetching it just before the
-first lane that compiles. It runs the Python lanes with the first Python 3.9 or
-newer it finds; set `PYTHON` to name one. `ruff.toml` pins the rule set the gate
+first lane that compiles. It runs the Python lanes with the first Python 3.11 or
+newer it finds, because the Rust style checker uses the standard-library TOML
+parser; set `PYTHON` to name one. An explicitly named older interpreter is
+refused before any gate runs, except for the `browser` lane, which runs no
+Python gate. The Rust lane requires Python for its workspace inheritance audit
+but never installs the instructor tool's packaging environment. Recreate an older `target/task-tools` environment
+with Python 3.11+ before using it for the gate; existing environments are never
+cleared automatically. `ruff.toml` pins the rule set the gate
 was written against, so a newer `ruff` with wider defaults does not fail an
 unchanged tree.
 
-Lint levels live in `Cargo.toml` rather than only in the gate's command line.
-`[lints.clippy] all = "deny"` is why an editor running a bare `cargo clippy`
+Lint levels live in the workspace tables in `Cargo.toml` rather than only in
+the gate's command line. The server and the Rust hook checker both inherit
+them through `[lints] workspace = true`. The Rust lane's `workspace-lints`
+gate obtains actual membership from offline Cargo metadata and refuses a
+member that opts out, including implicit path dependencies. The portable
+source checker needs no Cargo metadata. The Rust lane also builds public documentation with
+`cargo doc --no-deps`; shared rustdoc lints reject broken links and links from
+public documentation to private items.
+`[workspace.lints.clippy] all = "deny"` is why an editor running a bare `cargo clippy`
 agrees with `make check` instead of reporting warnings for what the gate calls
-an error, and `[lints.rust] unsafe_code = "forbid"` is what keeps this crate's
+an error. Ignored must-use results, stale lint expectations, discarded futures,
+locks held across await and `mem::forget` are explicit denials too.
+`[workspace.lints.rust] unsafe_code = "forbid"` is what keeps this crate's
 `unsafe` count at zero — `forbid` rather than `deny`, so a local `#[allow]`
-cannot reintroduce it.
+cannot reintroduce it. `scripts/check-rust-style.py` holds what a lint cannot
+ask: that this table stays strict, that no `allow` or bare `#[ignore]` appears,
+that no marker or CJK text lands in Rust or `web/`, and that no file passes the
+line ceiling in `scripts/rust-style-ceilings.json`, which `--ratchet` only
+lowers. The rules and the lints left off on purpose are in the codetrial-rust
+skill.
 
 The compiler those lints run on is pinned in `rust-toolchain.toml`, so a new
 Rust release cannot fail an unchanged tree: Dependabot proposes each bump as
@@ -637,7 +657,8 @@ run on their own: `scripts/server-check.sh`, `gemini-check.sh`,
 
 The instructor tool and its acceptance tests use the pinned Python dependency in
 `scripts/requirements-task.txt`. `scripts/task-package.py` finds its own
-interpreter: it needs Python 3.9 or newer, and reruns itself under a newer
+interpreter: it needs Python 3.9 or newer (the test gate needs 3.11, for its Rust style
+checker), and reruns itself under a newer
 `python3.x` on PATH when started on an older one; `build` also needs the
 dependency, and reruns under `target/task-tools` (`CODETRIAL_TASK_TOOLS` names
 another place), or else under a `python3.x` on PATH that already has it, and

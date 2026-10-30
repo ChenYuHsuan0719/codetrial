@@ -495,7 +495,10 @@ pub(crate) async fn device_poll_handler(
 /// Where the browser and the device sign-ins both end: GitHub's profile for
 /// `access_token`, recorded as a signed-in account. The session cookie to
 /// set, or the response saying why there is none.
-#[allow(clippy::result_large_err)] // Responses are immediately returned by HTTP handlers.
+#[expect(
+    clippy::result_large_err,
+    reason = "the error is the response sent to the client"
+)]
 async fn sign_in(
     state: &AppState,
     accounts: Arc<Accounts>,

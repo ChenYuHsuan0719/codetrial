@@ -1,7 +1,11 @@
 // `prompt_samples` names every prompt builder in one `json!` literal, which
 // outgrew the macro's default expansion depth.
 #![recursion_limit = "256"]
-#![allow(clippy::panic, clippy::unwrap_used)] // see [lints.clippy] in Cargo.toml
+#![expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "a test that fails by panicking is working as intended"
+)]
 
 use codetrial::agent::*;
 use codetrial::runtime::{TOPIC_CODE_UPDATE, TOPIC_CONTROL, TOPIC_INTEGRITY, TOPIC_TEST_RESULTS};
@@ -321,7 +325,7 @@ fn prompt_samples() -> Value {
                 accent: None,
             example_drawing_enabled: false,
             candidate_led_enabled: false,
-                profile: full_profile.clone(),
+                profile: full_profile,
                 grounding: InterviewGrounding::default(),
                 interview_loop: InterviewLoop::CodingBehavioral,
                 examples_hidden: false,

@@ -7,7 +7,10 @@ use std::sync::Arc;
 use crate::accounts::{Accounts, blocking};
 
 use super::store::delivery_handles;
-use super::*;
+use super::{
+    Clock, DeliveryProvider, Failure, Recorder, Recording, RecordingState, audit, gcs_object_path,
+    recording_by_id,
+};
 
 pub async fn deliver_recording(
     accounts: &Arc<Accounts>,
@@ -128,7 +131,7 @@ impl Transfer<'_> {
     /// naming them.
     async fn stage_object(&self) -> Result<(), Failure> {
         let recorded = {
-            let accounts = self.accounts.clone();
+            let accounts = Arc::clone(self.accounts);
             let id = self.recording.id.clone();
             let gcs_object = self.gcs_object.clone();
             blocking(move || set_gcs_object(&accounts, &id, &gcs_object)).await
@@ -160,7 +163,7 @@ impl Transfer<'_> {
         // Uploading again would leave that file in the Shared Drive with
         // nothing naming it.
         let handles = {
-            let accounts = self.accounts.clone();
+            let accounts = Arc::clone(self.accounts);
             let id = self.recording.id.clone();
             blocking(move || delivery_handles(&accounts, &id)).await
         };
@@ -202,7 +205,7 @@ impl Transfer<'_> {
         // then writing it again would fail the `IS NULL` guard and send this
         // delivery off to delete the file it was reusing.
         let stored = if made_here {
-            let accounts = self.accounts.clone();
+            let accounts = Arc::clone(self.accounts);
             let id = self.recording.id.clone();
             let drive_file_id = drive_file_id.clone();
             blocking(move || set_drive_file(&accounts, &id, &drive_file_id)).await
@@ -278,7 +281,7 @@ impl Transfer<'_> {
         // The permission id first, on its own, for the same reason the file id
         // was: a permission nothing names is one nothing can revoke.
         let stored = if made_here {
-            let accounts = self.accounts.clone();
+            let accounts = Arc::clone(self.accounts);
             let id = self.recording.id.clone();
             let permission_id = permission_id.clone();
             blocking(move || set_drive_permission(&accounts, &id, &permission_id)).await
@@ -324,8 +327,8 @@ impl Transfer<'_> {
         expires_at: i64,
     ) -> Result<(), Failure> {
         let finished = {
-            let accounts = self.accounts.clone();
-            let clock = self.recorder.clock.clone();
+            let accounts = Arc::clone(self.accounts);
+            let clock = Arc::clone(&self.recorder.clock);
             let id = self.recording.id.clone();
             blocking(move || finish_delivery(&accounts, clock.as_ref(), &id, expires_at)).await
         };
@@ -382,7 +385,7 @@ struct CleanupScope {
 }
 
 async fn cleanup_scope(accounts: &Arc<Accounts>, recording_id: &str) -> CleanupScope {
-    let accounts = accounts.clone();
+    let accounts = Arc::clone(accounts);
     let recording_id = recording_id.to_string();
     let Ok(Some(row)) = blocking(move || recording_by_id(&accounts, &recording_id)).await else {
         return CleanupScope {
@@ -449,7 +452,7 @@ async fn clean_up_after_losing(
     // something that is not there. Guarded on the value, so a row that has
     // moved on to some other file keeps it.
     if deleted && let Some(drive_file_id) = drive_file_id {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let recording_id = recording_id.to_string();
         let drive_file_id = drive_file_id.to_string();
         let _ = blocking(move || forget_drive_file(&accounts, &recording_id, &drive_file_id)).await;
@@ -505,8 +508,8 @@ async fn record_delivery_failure(
     recorder: &Recorder,
     recording_id: &str,
 ) {
-    let accounts = accounts.clone();
-    let clock = recorder.clock.clone();
+    let accounts = Arc::clone(accounts);
+    let clock = Arc::clone(&recorder.clock);
     let recording_id = recording_id.to_string();
     let _ = blocking(move || {
         accounts.with(|connection| {

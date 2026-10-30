@@ -222,7 +222,7 @@ fn the_rounds_a_report_calls_complete_are_the_ones_with_evidence() {
     );
 
     // One of the two coding phases is not both of them.
-    let mut half = bare.clone();
+    let mut half = bare;
     crate::livekit::tests::receive_test_run(&mut half);
     bank(&mut half, "test", "observed");
     assert_eq!(
@@ -282,7 +282,7 @@ fn the_rounds_a_report_calls_complete_are_the_ones_with_evidence() {
     );
 
     // A coding-only interview reserves no behavioral round at all.
-    let mut coding_only = coding_done.clone();
+    let mut coding_only = coding_done;
     coding_only.interview_loop = crate::agent::InterviewLoop::CodingOnly;
     assert_eq!(rounds(&coding_only)[1]["status"], "not_configured");
 }

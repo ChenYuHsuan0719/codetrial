@@ -556,8 +556,10 @@ fn an_exhausted_rotation_names_its_first_quota_key_back() {
 /// The server stands in for that by expiring every cooldown before it
 /// answers, so a check bounded only by selection would never stop.
 #[tokio::test]
-// The handshake callback's error type is a full HTTP response.
-#[allow(clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "the handshake callback's error type is a full HTTP response"
+)]
 async fn check_tries_each_key_once_even_when_cooldowns_expire() {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};

@@ -645,7 +645,7 @@ fn serve_setup(
             let ready = Arc::new(tokio::sync::Notify::new());
             let listener = tokio::net::TcpListener::from_std(listener)?;
             let service = codetrial::web::setup_service(
-                ready.clone(),
+                Arc::clone(&ready),
                 is_production(values),
                 bound.port(),
                 cold_start_config_path(options),

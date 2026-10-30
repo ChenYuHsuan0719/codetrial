@@ -33,6 +33,10 @@ fn set() -> Arc<LoadedSet> {
     Arc::new(decode("classroom", 7, &serde_json::to_vec(&package).unwrap()).unwrap())
 }
 
+#[expect(
+    clippy::panic_in_result_fn,
+    reason = "a test helper: an unexpected result is the test failing"
+)]
 fn admit(language: &str, compiler_explorer: bool) -> Result<TaskSession, &'static str> {
     let service = TaskService::new();
     service.insert_unlocked(1, SITE, set());

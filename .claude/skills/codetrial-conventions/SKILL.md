@@ -201,7 +201,8 @@ tests/stubs/    Fake executables the Python suites install, read by support.stub
 
 `src/` holds implementation. A file there may declare a test module, and may
 carry a `#[cfg(test)]` item that a test needs to reach, but must not contain a
-test body. The `src-test-bodies` gate in `scripts/test.sh` rejects test attributes
+test body. (Rust idiom, lint suppression and file ceilings are codetrial-rust.)
+The `src-test-bodies` gate in `scripts/test.sh` rejects test attributes
 and inline test modules under `src/`; test-only helpers remain allowed.
 
 ```rust

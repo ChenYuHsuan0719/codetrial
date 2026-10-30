@@ -33,7 +33,7 @@ pub(crate) async fn withdraw_consent_handler(
 ) -> Response {
     let now = current_epoch_seconds_i64();
     let withdrawn = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(&accounts);
         let interview_id = interview_id.clone();
         blocking(move || withdraw_consent(&accounts, &interview_id, user.id, now)).await
     };
@@ -50,7 +50,7 @@ pub(crate) async fn withdraw_consent_handler(
             // the sweeper will find. The other order loses the withdrawal.
             if let Some(recorder) = state.recorder.clone() {
                 let found = {
-                    let accounts = accounts.clone();
+                    let accounts = Arc::clone(&accounts);
                     blocking(move || {
                         crate::recording::recording_for_interview(&accounts, &interview_id, user.id)
                     })
@@ -111,7 +111,10 @@ pub(crate) fn recording_requires_consent() -> Response {
 /// `Ok(None)` where recording is off, which is the state every deployment is in
 /// until an operator provisions it: there is no consent to check because there
 /// is nothing to consent to.
-#[allow(clippy::result_large_err)] // Responses are immediately returned by HTTP handlers.
+#[expect(
+    clippy::result_large_err,
+    reason = "the error is the response sent to the client"
+)]
 pub(crate) async fn checked_consent(
     state: &AppState,
     accounts: &Arc<Accounts>,
@@ -130,7 +133,7 @@ pub(crate) async fn checked_consent(
     };
     let owner = user.id;
     let lookup = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let interview_id = interview_id.clone();
         blocking(move || interview_for_account(&accounts, &interview_id, owner)).await
     };
@@ -165,14 +168,17 @@ pub(crate) async fn checked_consent(
 /// second window has a room they may join and a recording that must not begin,
 /// which is the recording lifecycle's problem: the authoritative check runs
 /// immediately before the provider call.
-#[allow(clippy::result_large_err)] // Responses are immediately returned by HTTP handlers.
+#[expect(
+    clippy::result_large_err,
+    reason = "the error is the response sent to the client"
+)]
 pub(crate) async fn claim_consent(
     accounts: &Arc<Accounts>,
     user_id: i64,
     interview_id: String,
     room_name: &str,
 ) -> Result<(), Response> {
-    let accounts = accounts.clone();
+    let accounts = Arc::clone(accounts);
     let room_name = room_name.to_string();
     match blocking(move || claim_interview_room(&accounts, &interview_id, user_id, &room_name))
         .await

@@ -6,7 +6,10 @@ use rusqlite::OptionalExtension;
 use crate::accounts::{Accounts, blocking};
 
 use super::store::{SELECT_RECORDING, row_to_recording};
-use super::*;
+use super::{
+    Clock, DeliveryProvider, Failure, Recorder, Recording, RecordingState, audit,
+    deliver_recording, transition,
+};
 
 /// Three attempts, at zero, one minute and five. The first is the delivery
 /// itself; a Drive call that failed twice in six minutes is failing for a
@@ -171,7 +174,10 @@ pub fn reschedule_delivery(
         let Some(attempts) = attempts else {
             return Ok(Reschedule::NotOurs);
         };
-        let Some(backoff) = DELIVERY_BACKOFF_SECONDS.get(attempts.max(1) as usize - 1) else {
+        let Some(backoff) = usize::try_from(attempts.max(1) - 1)
+            .ok()
+            .and_then(|index| DELIVERY_BACKOFF_SECONDS.get(index))
+        else {
             // The row stays, still claimed. Deleting it here would leave a
             // `transferring` recording with an empty queue until the caller
             // fails it, which is exactly what the sweeper's repair looks for:
@@ -232,7 +238,7 @@ pub async fn run_delivery_queue(
     loop {
         let now = recorder.clock.now();
         let claimed = {
-            let accounts = accounts.clone();
+            let accounts = Arc::clone(accounts);
             match blocking(move || claim_delivery(&accounts, now)).await {
                 Ok(claimed) => claimed,
                 Err(error) => {
@@ -288,7 +294,7 @@ async fn deliver_claimed(
     // at start: the address was copied into the row when the recording began,
     // which is the address the candidate consented with.
     let recipient = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let id = recording.id.clone();
         blocking(move || recipient_of(&accounts, &id)).await
     };
@@ -339,7 +345,7 @@ async fn deliver_claimed(
     };
 
     let again = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let id = recording.id.clone();
         let reason = failure.as_str().to_string();
         let claim = claim.to_string();
@@ -401,8 +407,8 @@ async fn reopen_if_asked(
         return recording;
     }
     let reopened = {
-        let accounts = accounts.clone();
-        let clock = recorder.clock.clone();
+        let accounts = Arc::clone(accounts);
+        let clock = Arc::clone(&recorder.clock);
         let id = recording.id.clone();
         blocking(move || reopen_delivery(&accounts, clock.as_ref(), &id)).await
     };
@@ -414,7 +420,7 @@ async fn reopen_if_asked(
 
 /// Drops the queue row without touching the recording.
 async fn release_claim(accounts: &Arc<Accounts>, recording_id: &str, claim: &str) {
-    let accounts = accounts.clone();
+    let accounts = Arc::clone(accounts);
     let id = recording_id.to_string();
     let claim = claim.to_string();
     let _ = blocking(move || finish_delivery_work(&accounts, &id, &claim)).await;
@@ -437,8 +443,8 @@ async fn fail_and_release(
     recording_id: &str,
     claim: &str,
 ) -> bool {
-    let accounts = accounts.clone();
-    let clock = recorder.clock.clone();
+    let accounts = Arc::clone(accounts);
+    let clock = Arc::clone(&recorder.clock);
     let id = recording_id.to_string();
     let claim = claim.to_string();
     let moved = blocking(move || {

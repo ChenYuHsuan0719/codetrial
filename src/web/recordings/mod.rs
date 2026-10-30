@@ -118,7 +118,7 @@ pub(crate) async fn start_recording_handler(
     };
 
     let begun = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(&accounts);
         let recorder = recorder.clone();
         let interview_id = interview_id.clone();
         let recording_id = recording_id.clone();
@@ -178,7 +178,7 @@ async fn recording_state_now(
     recording: &crate::recording::Recording,
 ) -> Response {
     let fresh = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(accounts);
         let recording_id = recording.id.clone();
         blocking(move || crate::recording::recording_by_id(&accounts, &recording_id)).await
     };
@@ -510,7 +510,7 @@ pub(crate) async fn recording_events_handler(
     let avatar_history = params.get("avatar").map(String::as_str) == Some("history");
 
     let found = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(&accounts);
         let recording_id = recording_id.clone();
         blocking(move || crate::recording::recording_summary(&accounts, &recording_id, user.id))
             .await
@@ -635,9 +635,12 @@ pub(crate) async fn recording_replay_handler(
         return refused();
     };
     let now = recorder.clock.now().max(0);
-    let Ok(room_name) =
-        crate::token::livekit_room_from_token(&api_key, &api_secret, &authorization, now as u64)
-    else {
+    let Ok(room_name) = crate::token::livekit_room_from_token(
+        &api_key,
+        &api_secret,
+        &authorization,
+        now.cast_unsigned(),
+    ) else {
         return refused();
     };
 
@@ -649,7 +652,7 @@ pub(crate) async fn recording_replay_handler(
 
     let after = replay_after(&params);
     let found = {
-        let accounts = accounts.clone();
+        let accounts = Arc::clone(&accounts);
         let room_name = room_name.clone();
         blocking(move || crate::recording::recording_for_room(&accounts, &room_name)).await
     };

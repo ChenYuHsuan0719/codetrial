@@ -76,15 +76,16 @@ fn the_session_sweeper_starts_under_a_runtime_and_declines_without_one() {
     let scratch = AccountsScratch::new("sweeper");
 
     assert!(
-        crate::web::spawn_session_sweeper(scratch.accounts.clone()).is_empty(),
+        crate::web::spawn_session_sweeper(std::sync::Arc::clone(&scratch.accounts)).is_empty(),
         "no runtime to spawn on, so no timer and no panic"
     );
 
     // That dropping it stops it is the shared type's promise, and is held once,
     // in tests/unit/web/recordings/workers.rs.
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    let sweeper =
-        runtime.block_on(async { crate::web::spawn_session_sweeper(scratch.accounts.clone()) });
+    let sweeper = runtime.block_on(async {
+        crate::web::spawn_session_sweeper(std::sync::Arc::clone(&scratch.accounts))
+    });
     let handle = sweeper.0.first().expect("a runtime means a timer");
     assert!(!handle.is_finished(), "it runs for the life of the server");
 }
