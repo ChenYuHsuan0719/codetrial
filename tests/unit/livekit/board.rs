@@ -642,7 +642,7 @@ async fn an_explicit_read_bounds_an_unfinished_upload() {
 /// A task room has no interview state to count a board in, so it keeps one
 /// directly, and the board it holds is the one `read_board` shows. An example
 /// board is never sent unprompted and never reaches a report.
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn a_task_room_keeps_a_board_for_read_board_alone() {
     let mut board = Board::example();
     assert!(!board.has_board());
