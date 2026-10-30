@@ -330,7 +330,9 @@ request, is [codetrial-review](../codetrial-review/SKILL.md).
 A skill names gates, lanes, scripts, flags, make targets and documents, and
 each one can move. The `skill-refs` gate runs `scripts/check-skill-refs.py`,
 which prints every reference a skill makes that no longer resolves and every
-check script this skill does not list; run it on its own after changing either
+check script this skill does not list, and rejects a SKILL.md whose
+frontmatter `name` differs from its directory or whose `description` is empty;
+run it on its own after changing either
 side. It catches a rename, not a change of meaning, so a changed rule still
 needs the skill reread. The scripts the skills run are tested in
 `tests/test_skill_scripts.py`.

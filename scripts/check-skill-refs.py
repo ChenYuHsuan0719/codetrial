@@ -5,8 +5,9 @@ The skills under `.claude/skills/` name relative links and their anchors, repo
 paths and root files in backticks or code blocks, make targets, script flags and
 CI lane names, and each one can move. This prints one line per dangling
 reference, plus every check script outside the gate that codetrial-verify does
-not name, and exits 1 when there is any. It catches a rename, not a change of
-meaning.
+not name, and exits 1 when there is any. It also checks that each SKILL.md
+has frontmatter whose `name` is lowercase-hyphen and equals its directory and
+whose `description` is not empty. It catches a rename, not a change of meaning.
 
 Anchors follow GitHub's rule rather than a guess at it, because a link whose
 anchor is wrong still opens the file and an agent reading it never notices.
@@ -246,6 +247,55 @@ def check(md):
 
 for md in sorted(glob.glob(".claude/skills/*/**/*.md", recursive=True)):
     check(md)
+
+# Routing keys on the frontmatter: a name that drifts from its directory, or an
+# empty description, leaves the skill unreachable until the paid routing run.
+NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+
+
+def scalar(value):
+    """A one-line YAML value as text: a quoted value loses its quotes, and an
+    unquoted one its trailing comment."""
+    value = value.strip()
+    close = value.find(value[:1], 1) if value[:1] in ("'", '"') else -1
+    if close > 0:
+        return value[1:close].strip()
+    return re.sub(r"(^|\s)#.*$", "", value).strip()
+
+
+def frontmatter(text):
+    """The top-level `key: value` pairs of the leading --- block, or None. A
+    folded or literal block scalar (`>`, `|`) takes its indented lines."""
+    lines = text.splitlines()
+    if not lines or lines[0] != "---":
+        return None
+    end = next((i for i in range(1, len(lines)) if lines[i] == "---"), None)
+    if end is None:
+        return None
+    fields, key = {}, None
+    for line in lines[1:end]:
+        m = re.match(r"([A-Za-z_-]+):[ \t]*(.*)$", line)
+        if m:
+            key, value = m.groups()
+            fields[key] = "" if value[:1] in (">", "|") else scalar(value)
+        elif key and line.startswith((" ", "\t")):
+            fields[key] = (fields[key] + " " + line.strip()).strip()
+    return fields
+
+
+for md in sorted(glob.glob(".claude/skills/*/SKILL.md")):
+    with open(md, encoding="utf-8") as f:
+        fields = frontmatter(f.read())
+    if fields is None:
+        report(md, "frontmatter", "missing")
+        continue
+    name = fields.get("name", "")
+    if not NAME.fullmatch(name):
+        report(md, "name", f"{name!r} is not lowercase-hyphen")
+    elif name != os.path.basename(os.path.dirname(md)):
+        report(md, "name", f"{name} does not match its directory")
+    if not fields.get("description"):
+        report(md, "description", "empty")
 
 # A skill's rules/paths routes changed files to rule files beside it: each rule
 # it names has to exist, and each pattern has to match a tracked file, or it
