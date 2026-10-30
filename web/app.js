@@ -365,6 +365,22 @@ for (const card of cards) {
     if (wasException) searchVisibilityException = card;
     setDuration(suggestedDuration(new Set([card.difficulty])));
     nodes.recommendation.textContent = `Selected problem: ${title(card)}.`;
+
+    // Close the picker after a manual problem selection.
+    nodes.problemPicker.open = false;
+
+    // Keep keyboard focus on a visible control.
+    focusPickerSummary();
+
+    // Scroll to the selected problem after the picker collapses.
+    requestAnimationFrame(() => {
+      nodes.recommendation.scrollIntoView({
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "center",
+      });
+    });
   });
 }
 

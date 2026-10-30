@@ -1525,7 +1525,12 @@ lobbyTest(
     await page.click("details.problem-picker summary");
     // A very long title, the same worst case the next test uses.
     await page.click(`[data-problem="${LONG_TITLE}"]`);
-    await page.click("details.problem-picker summary");
+    assert.equal(
+      await page
+        .locator("details.problem-picker")
+        .evaluate((node) => node.open),
+      false,
+    );
 
     // Measured against the viewport this test actually runs at, not a number
     // beside it. The option was dropped once already when this became a
@@ -1625,7 +1630,12 @@ lobbyTest(
     await lobby(page);
     await page.click("details.problem-picker summary");
     await page.click(`[data-problem="${LONG_TITLE}"]`);
-    await page.click("details.problem-picker summary");
+    assert.equal(
+      await page
+        .locator("details.problem-picker")
+        .evaluate((node) => node.open),
+      false,
+    );
 
     for (const [width, beside] of [
       [320, false],
@@ -1876,6 +1886,7 @@ lobbyTest(
     await openTopicFilter(page);
     const chosen = MEDIUM[0];
     await page.click(`[data-problem="${chosen}"]`);
+    await page.click("details.problem-picker summary");
     await page.fill("#problem-search", "no-title-has-this-unique-phrase-404");
     assert.equal(await page.locator(".problem-card:visible").count(), 0);
     assert.equal((await snapshot(page)).card, chosen);
@@ -1923,6 +1934,7 @@ lobbyTest(
     await page.click(`[data-problem="${easyArray}"]`);
     assert.equal((await snapshot(page)).card, easyArray);
 
+    await page.click("details.problem-picker summary");
     await page.fill("#problem-search", "no_such_scenario_title_404");
     assert.equal(
       await page.locator(`[data-problem="${easyArray}"]`).isVisible(),
@@ -1981,6 +1993,7 @@ lobbyTest(
           .locator(`[data-problem="${easyArray}"] .problem-title`)
           .textContent()
       ).trim();
+      await page.click("details.problem-picker summary");
       await page.fill("#problem-search", scenarioTitle);
       assert.equal(
         await page.locator(`[data-problem="${easyArray}"]`).isVisible(),
@@ -2280,6 +2293,7 @@ lobbyTest(
       card.click();
     }, hardArray);
 
+    await page.click("details.problem-picker summary");
     await page.selectOption("#problem-topic", "Array");
     const state = await snapshot(page);
     assert.notEqual(state.card, hardArray);
@@ -2305,6 +2319,7 @@ lobbyTest(
     await page.click(`[data-problem="${manual}"]`);
     assert.equal((await snapshot(page)).card, manual);
 
+    await page.click("details.problem-picker summary");
     await page.fill("#problem-search", "zzzzzz-no-match");
     assert.equal(await page.locator(".problem-card:visible").count(), 0);
     await page.selectOption("#problem-topic", "Array");
@@ -2412,6 +2427,121 @@ lobbyTest(
   },
 );
 
+for (const [activation, viewport, reducedMotion] of [
+  ["click", { width: 1280, height: 800 }, "no-preference"],
+  ["Enter", { width: 375, height: 667 }, "no-preference"],
+  ["Space", { width: 1280, height: 800 }, "no-preference"],
+  ["Enter", { width: 375, height: 667 }, "reduce"],
+]) {
+  lobbyTest(
+    `manual selection feedback survives reopening and release with ${activation} (${reducedMotion})`,
+    async (page) => {
+      await lobby(page);
+      await awaitReady(page);
+      const initial = await snapshot(page);
+      const picker = page.locator("details.problem-picker");
+      const summary = picker.locator("summary");
+      const recommendation = page.locator("#recommendation");
+      const activate = async (button) => {
+        if (activation === "click") await button.click();
+        else {
+          await button.focus();
+          await page.keyboard.press(activation);
+        }
+      };
+
+      // Observe the request without replacing native scrolling. Capture state
+      // at the call so a scroll issued before collapse cannot pass this check.
+      await recommendation.evaluate((node) => {
+        node.selectionScrolls = [];
+        const scroll = node.scrollIntoView;
+        node.scrollIntoView = function (options) {
+          this.selectionScrolls.push({
+            options,
+            open: document.querySelector("details.problem-picker").open,
+            note: this.textContent,
+            summaryFocused:
+              document.activeElement ===
+              document.querySelector("details.problem-picker summary"),
+          });
+          return scroll.call(this, options);
+        };
+      });
+
+      const other = MEDIUM.find((id) => id !== initial.card);
+      const first = MEDIUM.find((id) => id !== other);
+      for (const [index, id] of [first, other].entries()) {
+        await activate(summary);
+        assert.equal(await picker.evaluate((node) => node.open), true);
+        const card = page.locator(`[data-problem="${id}"]`);
+        const title = (
+          await card.locator(".problem-title").textContent()
+        ).trim();
+        await activate(card);
+
+        assert.equal(await picker.evaluate((node) => node.open), false);
+        assert.equal(await card.isVisible(), false);
+        assert.equal(await summary.isVisible(), true);
+        assert.equal(await isFocused(summary), true);
+        const selected = await snapshot(page);
+        assert.equal(selected.card, id);
+        assert.equal(selected.pressed, id);
+        assert.equal(selected.note, `Selected problem: ${title}.`);
+        assert.equal(selected.startDisabled, false);
+        await page.waitForFunction(
+          (count) =>
+            document.querySelector("#recommendation").selectionScrolls
+              .length === count,
+          index + 1,
+        );
+        assert.deepEqual(
+          await recommendation.evaluate((node) => node.selectionScrolls.at(-1)),
+          {
+            options: {
+              behavior: reducedMotion === "reduce" ? "auto" : "smooth",
+              block: "center",
+            },
+            open: false,
+            note: selected.note,
+            summaryFocused: true,
+          },
+        );
+        await page.waitForFunction(() => {
+          const rect = document
+            .querySelector("#recommendation")
+            .getBoundingClientRect();
+          return rect.top >= 0 && rect.bottom <= innerHeight;
+        });
+      }
+
+      await activate(summary);
+      const selectedCard = page.locator(`[data-problem="${other}"]`);
+      await activate(selectedCard);
+      // Drain animation callbacks before proving deselection schedules no scroll.
+      await page.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+      assert.equal(await picker.evaluate((node) => node.open), true);
+      assert.equal(await selectedCard.isVisible(), true);
+      assert.equal(await isFocused(selectedCard), true);
+      const released = await snapshot(page);
+      assert.equal(released.card, initial.card);
+      assert.equal(released.pressed, initial.pressed);
+      assert.equal(released.note, initial.note);
+      assert.equal(released.duration, initial.duration);
+      assert.equal(released.startDisabled, false);
+      assert.equal(
+        await recommendation.evaluate((node) => node.selectionScrolls.length),
+        2,
+      );
+    },
+    { viewport, reducedMotion },
+  );
+}
+
 lobbyTest(
   "deselecting a recommended problem card preserves the card but restores the recommendation note",
   async (page) => {
@@ -2435,6 +2565,7 @@ lobbyTest(
     assert.equal(selected.card, dueProblem);
     assert.match(selected.note, /Selected problem:/);
 
+    await page.click("details.problem-picker summary");
     // Click it again to deselect
     await page.click(`[data-problem="${dueProblem}"]`);
 
@@ -2470,6 +2601,7 @@ lobbyTest(
     const manualPick = await snapshot(page);
     assert.equal(manualPick.card, otherCard);
 
+    await page.click("details.problem-picker summary");
     // Focus the button and release via keyboard
     await cardButton.focus();
     await page.keyboard.press("Enter");
@@ -2517,6 +2649,7 @@ lobbyTest(
       assert.equal(selected.card, card);
       assert.equal(selected.startDisabled, false);
 
+      await page.click("details.problem-picker summary");
       // Deselect the card while history is still held
       await cardButton.click();
 
@@ -2558,6 +2691,7 @@ lobbyTest(
         page,
         () => !document.querySelector("#random-problem").disabled,
       );
+      await page.click("details.problem-picker summary");
       // Deselect the card after held history has settled
       await cardButton.click();
 
@@ -2590,6 +2724,7 @@ lobbyTest(
       const cardButton = page.locator(`[data-problem="${MEDIUM[0]}"]`);
 
       await cardButton.click();
+      await page.click("details.problem-picker summary");
       await cardButton.click();
       assert.equal(
         await isFocused(cardButton),
@@ -2678,6 +2813,7 @@ lobbyTest(
     );
     // Clicking the visible review card also must not lose its exception.
     await page.locator(`[data-problem="${due}"]`).click();
+    await page.click("details.problem-picker summary");
     await page.fill("#problem-search", "no-title-matches-this-query-404");
     await page.fill("#problem-search", "");
     assert.equal((await cardInfo(page, due)).hidden, false);
@@ -5768,6 +5904,7 @@ lobbyTest(
 
     // A second card while the button reads "Recording GitHub...": re-arming it
     // here buys the candidate a second navigation out of one start.
+    await page.click("details.problem-picker summary");
     await page.click(`[data-problem="${pageOf("gas-station")}"]`);
     assert.equal(
       (await snapshot(page)).startDisabled,
@@ -8720,6 +8857,7 @@ lobbyTest(
     const first = grid.locator(".problem-card:visible").first();
     const id = await first.getAttribute("data-problem");
     await first.click();
+    await summary.click();
     assert.equal(
       await grid.evaluate((node) => {
         // Rendered cards, not unhidden ones: filtering hides the enclosing
@@ -9151,6 +9289,7 @@ for (const storage of ["account", "device"]) {
           .count(),
         0,
       );
+      await page.click("details.problem-picker summary");
       await page.locator(`[data-practice-problem="${EASY[0]}"]`).check();
       assert.equal(
         await summary.textContent(),
@@ -9730,7 +9869,12 @@ lobbyTest(
     });
     await page.click("details.problem-picker summary");
     await page.click(`[data-problem="${LONG_TITLE}"]`);
-    await page.click("details.problem-picker summary");
+    assert.equal(
+      await page
+        .locator("details.problem-picker")
+        .evaluate((node) => node.open),
+      false,
+    );
 
     const { height } = page.viewportSize();
     for (const font of ["", "Arial, sans-serif", "TallMetrics"]) {
