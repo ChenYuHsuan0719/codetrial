@@ -754,6 +754,38 @@ fn task_mode_is_asked_for_by_a_flag_that_takes_no_value() {
     );
 }
 
+/// The desktop app passes `--no-update-check`, and it has to win over a
+/// config file that turned the check on, which is the one it imported.
+#[test]
+fn no_update_check_is_a_flag_that_turns_the_setting_off() {
+    let parse = |argv: &[&str]| {
+        super::parse_agent_args(&argv.iter().map(|arg| arg.to_string()).collect::<Vec<_>>())
+    };
+    let (_, options) = parse(&["web"]).unwrap();
+    assert!(!options.no_update_check);
+    let (positionals, options) = parse(&["--no-update-check", "web"]).unwrap();
+    assert_eq!(
+        (positionals, options.no_update_check),
+        (vec!["web".to_string()], true)
+    );
+    assert_eq!(
+        parse(&["web", "--no-update-check=yes"]).unwrap_err(),
+        "--no-update-check takes no value"
+    );
+
+    let mut on = values(&[("CODETRIAL_UPDATE_CHECK", "true")]);
+    super::apply_options(&mut on, &super::CliOptions::default());
+    assert_eq!(on["CODETRIAL_UPDATE_CHECK"], "true");
+    super::apply_options(
+        &mut on,
+        &super::CliOptions {
+            no_update_check: true,
+            ..super::CliOptions::default()
+        },
+    );
+    assert_eq!(on["CODETRIAL_UPDATE_CHECK"], "false");
+}
+
 /// A refusal says what to change, and each reason names its own cause.
 #[test]
 fn task_mode_says_why_it_may_not_run_here() {

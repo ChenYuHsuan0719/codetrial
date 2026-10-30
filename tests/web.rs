@@ -148,6 +148,7 @@ fn web_config() -> WebServerConfig {
         recording: None,
         pool: primary_pool("wss://example.livekit.cloud", "devkey", "devsecret"),
         probe_provider_quota: false,
+        update_check_commit: None,
     }
 }
 
@@ -1404,6 +1405,9 @@ mod accounts;
 
 #[path = "web/routes.rs"]
 mod routes;
+
+#[path = "web/update.rs"]
+mod update;
 
 /// A custom dispatcher must explicitly opt in to guest admission.
 struct DefaultGuestAdmissionDispatcher;

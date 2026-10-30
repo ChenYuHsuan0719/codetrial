@@ -78,6 +78,24 @@ the executable in place and leave `config/` alone. Unpacking into a fresh
 directory starts over, and deleting the directory removes everything this
 program kept.
 
+The binary does not say when `latest` has moved on unless you ask it to. On
+macOS, `CODETRIAL_UPDATE_CHECK=true` in that config file has the lobby check
+when it loads, which includes coming back from an interview, and again on every
+hour it stays open. The server asks GitHub's API which commit `latest` names,
+at most once every ten minutes however many tabs are open, and when that is not
+the commit `./codetrial --version` prints, the lobby shows a notice linking to
+the release. Dismissing it hides it until a later release. A check that fails,
+offline or while `latest` is being republished, shows nothing. It is off by
+default because it is the one request the server makes to GitHub on its own:
+GitHub sign-in reaches GitHub when a candidate signs in, on their account, and
+the avatar model is fetched by the interview page, while this check is the
+server asking whenever a lobby is open, with no account. It does nothing on
+Linux or Windows, or in a build from source, whose commit the release will
+never name. The desktop app never checks either: it is
+published as `desktop-latest`, which this does not read, so it starts its
+server with `--no-update-check`, which turns the setting off over the config
+file.
+
 `GOOGLE_API_KEY` is the optional one, and it decides which of two things this
 process is. With it, the server hosts interviewers itself. Without it, it serves
 the web side only and every room waits for an agent to join from elsewhere, and

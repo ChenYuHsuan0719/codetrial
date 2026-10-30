@@ -37,7 +37,8 @@ fn the_server_is_started_on_the_data_dir_and_told_the_rest() {
             "--web-addr",
             "127.0.0.1:3101",
             "--allowed-hosts",
-            "127.0.0.1:3101"
+            "127.0.0.1:3101",
+            "--no-update-check"
         ]
     );
     assert_eq!(command.get_current_dir(), Some(Path::new("/data")));

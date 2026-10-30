@@ -345,6 +345,7 @@ The common ones:
 | `CODETRIAL_GEMINI_TOOL_ACK` | `false` | Experimental: while a tool call holds back a reply the candidate is waiting for, play a short acknowledgement generated once per interview in the interviewer's voice; see [latency observability](docs/latency-observability.md) |
 | `CODETRIAL_GEMINI_CANDIDATE_VIDEO_ENABLED` | `false` | Forward candidate video to Gemini, one low-resolution frame in five seconds; ignored in a whiteboard interview |
 | `CODETRIAL_COMPILER_EXPLORER_ENABLED` | `true` | Enable remote C, C++, and Java runs |
+| `CODETRIAL_UPDATE_CHECK` | `false` | macOS release binaries only: the lobby says when the `latest` release names a newer build, asking GitHub at most once every ten minutes; see [installing a prebuilt binary](docs/install.md) |
 | `CODETRIAL_MAX_CONCURRENT_INTERVIEWS` | `16` | Interviews one `web` process hosts agents for |
 | `CODETRIAL_ALLOWED_HOSTS` | empty | Comma-separated `Host` values the server answers; any other is refused with 421. Empty answers every name, but a value that names no host is refused at startup. `--allowed-hosts` sets it from the command line |
 | `CODETRIAL_EXIT_WITH_STDIN` | unset | For a program that starts the server as its child: exit when standard input reaches end of file, so the server does not outlive a launcher that crashed. Read from the process environment even under `--data-dir` |

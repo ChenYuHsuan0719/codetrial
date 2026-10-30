@@ -28,6 +28,7 @@ mod selection;
 mod setup;
 mod tasks;
 mod token;
+mod update;
 
 // Flattened back into one namespace so the split is a file boundary and not an
 // API change: every path that named `web::thing` before still does.
@@ -114,6 +115,13 @@ pub struct WebServerConfig {
     /// asked for. The binaries set it; a test enables it only when it is
     /// exercising provider availability and points it at a stub.
     pub probe_provider_quota: bool,
+
+    /// The commit `/api/update` compares against the `latest` release, or
+    /// `None` for a server that asks GitHub nothing; see
+    /// `config::update_check_commit` for when the binary sets it. Read from the
+    /// config rather than from the build, so a test can run the check from a
+    /// build no CI made, pointed at a stub through `github_api_base_url`.
+    pub update_check_commit: Option<String>,
 }
 
 /// Redacting by hand, because the derive printed `session_secret` and
@@ -153,6 +161,7 @@ impl fmt::Debug for WebServerConfig {
             recording,
             pool,
             probe_provider_quota,
+            update_check_commit,
         } = self;
         formatter
             .debug_struct("WebServerConfig")
@@ -181,6 +190,7 @@ impl fmt::Debug for WebServerConfig {
             .field("recording", recording)
             .field("pool", pool)
             .field("probe_provider_quota", probe_provider_quota)
+            .field("update_check_commit", update_check_commit)
             .finish()
     }
 }
@@ -254,6 +264,9 @@ pub(crate) struct AppState {
     /// error.
     provider_quota: ProviderQuota,
     room_authorizations: Arc<Mutex<token::RoomAuthorizations>>,
+    /// What GitHub last said the `latest` release is, shared by every tab
+    /// that asks.
+    latest_release: update::LatestRelease,
 }
 
 /// Opens the connection the server keeps, brings its schema up to date, and
@@ -486,6 +499,7 @@ pub(crate) fn web_router(
             axum::routing::post(auth::device_poll_handler),
         )
         .route("/api/logout", post(logout_handler))
+        .route("/api/update", get(update::update_handler))
         .route("/api/interviews", post(create_interview_handler))
         .route(
             "/api/interviews/{id}/consent",
@@ -567,6 +581,7 @@ pub(crate) fn web_router(
             provider_quota,
             background: Arc::new(background),
             room_authorizations: Arc::default(),
+            latest_release: update::LatestRelease::default(),
         })
 }
 
