@@ -177,6 +177,7 @@ import {
   unclearLineIds,
   updateCaptions,
 } from "./captions.js";
+import { initLocalRecording } from "./local-recorder.js";
 import {
   consentGiven,
   initRecording,
@@ -532,6 +533,7 @@ const state = {
   reportUnreadable: false,
   room: null,
   connected: false,
+  offlinePractice: false,
   /// The consent this interview is running under, `null` where the server
   /// records nothing. The withdrawal button needs it and has nowhere else to
   /// read it from.
@@ -627,6 +629,8 @@ const nodes = {
   end: document.querySelector("#end"),
   withdrawConsent: document.querySelector("#withdraw-consent"),
   recordingState: document.querySelector("#recording-state"),
+  localRecording: document.querySelector("#local-recording"),
+  localRecordingJoin: document.querySelector("#local-recording-join"),
   editor: document.querySelector("#editor"),
   languageSelect: document.querySelector("#language-select"),
   preflightLanguage: document.querySelector("#preflight-language"),
@@ -759,6 +763,67 @@ holdWorkspaceBehindDialogs();
 initAudioOutput({ nodes, jimAudioElement: () => jimAudio });
 paintMicrophoneState();
 initRecording({ state, nodes, recordingEnabled, addTranscript, setBanner });
+let recordingMicrophoneDeviceId;
+const localRecording = initLocalRecording({
+  state,
+  nodes,
+  recordingEnabled,
+  isRoomLive: microphoneLive,
+  async prepareMicrophone(isCurrent) {
+    if (
+      state.localUserStream
+        ?.getAudioTracks()
+        .some((track) => track.readyState === "live") ||
+      state.room ||
+      !state.offlinePractice ||
+      !nodes.audioCheck.hidden ||
+      !isCurrent()
+    )
+      return;
+    // Offline Stop releases the input; only another explicit recording reopens it.
+    let track;
+    try {
+      track = await openMicrophone(
+        navigator.mediaDevices,
+        recordingMicrophoneDeviceId,
+      ).catch((error) => {
+        if (
+          recordingMicrophoneDeviceId &&
+          isCurrent() &&
+          ["NotFoundError", "OverconstrainedError"].includes(error?.name)
+        )
+          return openMicrophone(navigator.mediaDevices);
+        throw error;
+      });
+    } catch {
+      throw new Error(
+        "The interview microphone could not be reopened. Check microphone access and start again.",
+      );
+    }
+    if (!isCurrent()) {
+      track.stop();
+      return;
+    }
+    track.enabled = state.micEnabled;
+    state.localUserStream ??= new MediaStream();
+    for (const previous of state.localUserStream.getAudioTracks())
+      state.localUserStream.removeTrack(previous);
+    state.localUserStream.addTrack(track);
+  },
+  onRecordingChange(active) {
+    // A room still joining also needs its preflight input.
+    if (!active && !state.room && state.offlinePractice)
+      state.localUserStream?.getAudioTracks().forEach((track) => {
+        recordingMicrophoneDeviceId =
+          track.getSettings?.().deviceId || recordingMicrophoneDeviceId;
+        track.stop();
+      });
+    if (nodes.screenRecording.checked) return;
+    detachSelfView();
+    if (active && !nodes.meetPresentation.checked)
+      detachSelfView = attachSelfView(nodes.selfView, state.localUserStream);
+  },
+});
 initIntegrity({
   state,
   nodes,
@@ -1665,10 +1730,16 @@ function paintPreflight(state, hint) {
 /// the interviewer's voice plays, whether the candidate heard tone or speech.
 function runAudioCheck() {
   return new Promise((resolve) => {
+    // Setup makes the sidebar inert, so recording notices belong in its dialog.
+    const recordingStatus = nodes.localRecording.querySelector(
+      "[data-local-status]",
+    );
+    nodes.audioStatus.after(recordingStatus);
     const mediaDevices = navigator.mediaDevices;
     const browserSupported = Boolean(mediaDevices?.getUserMedia);
     let outputConfirmed = false;
     let advanced = false;
+    let joining = false;
     let cameraSkipped = false;
     let cameraSkipReason = null;
 
@@ -1834,8 +1905,9 @@ function runAudioCheck() {
       // a device that can be proven, it is an answer, and folding it into
       // `mediaReadiness` would put a legal question inside the function that
       // decides whether a microphone works.
-      const ready = state.ready && consentGiven();
+      const ready = state.ready && consentGiven() && !joining;
       nodes.audioJoin.disabled = !ready;
+      nodes.localRecordingJoin.disabled = !ready;
 
       // refresh() runs on every animation frame from the meter, so hand over
       // once on the transition rather than stealing focus continuously. The
@@ -1855,6 +1927,7 @@ function runAudioCheck() {
     // so a request still pending when this runs never lights the camera.
     const stopChecks = () => {
       finished = true;
+      nodes.localRecording.append(recordingStatus);
       microphoneSelector.close();
       playbackRequest += 1;
       nodes.preflightOutput.removeEventListener("outputchange", outputChanged);
@@ -1867,8 +1940,22 @@ function runAudioCheck() {
       void context?.close().catch(() => {});
     };
 
-    const finish = () => {
-      if (finished || !sampleReadiness().ready) return;
+    const finish = async (recordLocally = false) => {
+      if (finished || joining || !sampleReadiness().ready) return;
+      joining = true;
+      refresh();
+      if (recordLocally) {
+        state.localUserStream = pool.stream;
+        const started = await localRecording.start();
+        if (finished) return;
+        if (!started || !sampleReadiness().ready) {
+          await localRecording.stop({ discard: true });
+          if (finished) return;
+          joining = false;
+          refresh();
+          return;
+        }
+      }
       stopChecks();
       nodes.audioCheck.hidden = true;
       resolve({ userStream: pool.stream, cameraSkipped, cameraSkipReason });
@@ -1990,7 +2077,8 @@ function runAudioCheck() {
     nodes.audioHeard.addEventListener("pointerdown", confirmOutput);
     nodes.audioHeard.addEventListener("click", confirmOutput);
 
-    nodes.audioJoin.addEventListener("click", finish);
+    nodes.audioJoin.addEventListener("click", () => void finish());
+    nodes.localRecordingJoin.addEventListener("click", () => void finish(true));
     nodes.audioLeave.addEventListener("click", leave);
 
     nodes.cameraSkip.addEventListener("click", () => {
@@ -2017,6 +2105,7 @@ function runAudioCheck() {
     // records nothing asks for permission nobody needs and teaches candidates
     // to click past it.
     nodes.recordingConsentStep.hidden = !recordingEnabled;
+    nodes.localRecordingJoin.hidden = recordingEnabled;
     nodes.recordingConsent.addEventListener("change", refresh);
 
     // A live track is enough for the microphone: the meter is what proves one
@@ -2249,11 +2338,15 @@ async function connect(preflight, presenting = false) {
     // how a page ran "offline practice" with a live LiveKit room underneath it,
     // still holding the microphone and still receiving Jim, while nothing on
     // screen could act on either.
-    abandonStart(preflight);
+    const preserveMicrophone =
+      state.phase === "live" && !strict && localRecording.needsMicrophone;
+    state.offlinePractice = state.phase === "live" && !strict;
+    abandonStart(preflight, { preserveMicrophone });
     // An end during any await of this start can still land here, a token
     // timeout or refusal after the candidate pressed End among them. The
     // interview is over, so no fallback is offered under its ending.
     if (state.phase !== "live") return false;
+    if (!preserveMicrophone) localRecording.stop({ discard: true });
     const reason =
       strict &&
       (error?.name === "TimeoutError" || [408, 504].includes(error?.status))
@@ -2344,6 +2437,9 @@ async function connectLiveKit(connection, preflight, presenting = false) {
   const room = new livekit.Room({
     adaptiveStream: true,
     dynacast: true,
+    // A candidate can start recording after this room is built. The terminal
+    // disconnect handler decides whether the current recorder needs the mic.
+    stopLocalTrackOnUnpublish: strict,
     // LiveKit disconnects during beforeunload, before the candidate has chosen
     // whether to leave. CodeTrial waits for pagehide below instead.
     disconnectOnPageLeave: false,
@@ -2437,6 +2533,14 @@ async function connectLiveKit(connection, preflight, presenting = false) {
   room.on(livekit.RoomEvent.Disconnected, () => {
     audioPlayback.release(room);
     state.connected = false;
+    state.offlinePractice = !strict;
+    if (strict && state.joinedRoom) localRecording.finish();
+    const preserveMicrophone = !strict && localRecording.needsMicrophone;
+    stopPreflight(
+      { userStream: state.localUserStream ?? preflight.userStream },
+      { preserveMicrophone },
+    );
+    if (preserveMicrophone) setLocalAudioEnabled(state.micEnabled);
     if (strict) updateRunAvailability();
     // Terminal, not transient: LiveKit fires Reconnecting for a recoverable
     // blip and only reaches here when it has given up. Dropping the reference
@@ -2447,6 +2551,8 @@ async function connectLiveKit(connection, preflight, presenting = false) {
     // waiting on an overlay for a report that could not arrive.
     if (state.phase === "report_recovery") reportRecovery.finish();
     state.room = null;
+    // A lost input may have been awaiting replacement when this room left.
+    if (preserveMicrophone) localRecording.refreshMicrophone();
     if (strict) setAgentStateLabel("Not connected");
     setBanner(
       "connection",
@@ -2478,12 +2584,15 @@ async function connectLiveKit(connection, preflight, presenting = false) {
     // a failure: a report arriving then may still need this room.
     if (state.phase !== "live") return settleEndedJoin(room, preflight);
     audioPlayback.release(room);
-    await room.disconnect().catch(() => {});
+    await room
+      .disconnect(strict || !localRecording.needsMicrophone)
+      .catch(() => {});
     throw error;
   }
   if (state.phase !== "live") return settleEndedJoin(room, preflight);
   state.room = room;
   state.connected = true;
+  state.offlinePractice = false;
   // Sticky, unlike `state.room`, which a disconnect clears. This is what says
   // "an interviewer was involved in this session", and it is the only thing
   // allowed to decide whether the browser may produce a score.
@@ -2612,6 +2721,9 @@ async function publishPreflightTracks(room, preflight) {
   const livekit = window.LivekitClient;
   const source = livekit?.Track?.Source || {};
   for (const track of preflight.userStream?.getAudioTracks?.() || []) {
+    // The SDK may stop this input before offline cleanup can read its settings.
+    recordingMicrophoneDeviceId =
+      track.getSettings?.().deviceId || recordingMicrophoneDeviceId;
     await room.localParticipant.publishTrack(track, {
       source: source.Microphone,
     });
@@ -2628,14 +2740,15 @@ async function publishPreflightTracks(room, preflight) {
 let detachSelfView = () => {};
 
 /// Leaves whatever room a start has already joined and releases the
-/// preflight's tracks. Dropping the room's reference alone does not leave it.
-function abandonStart(preflight) {
+/// preflight's tracks, keeping the mic only for ongoing offline recording.
+function abandonStart(preflight, { preserveMicrophone = false } = {}) {
   const joined = state.room;
   state.connected = false;
   state.room = null;
-  if (joined) void joined.disconnect?.()?.catch?.(() => {});
+  if (joined) void joined.disconnect?.(!preserveMicrophone)?.catch?.(() => {});
   releaseStart();
-  stopPreflight(preflight);
+  stopPreflight(preflight, { preserveMicrophone });
+  if (preserveMicrophone) state.localUserStream = preflight.userStream;
 }
 
 /// Tells the server this start will not join. Fire and forget: the server
@@ -2654,7 +2767,7 @@ function releaseStart() {
   }).catch(() => {});
 }
 
-function stopPreflight(preflight) {
+function stopPreflight(preflight, { preserveMicrophone = false } = {}) {
   // `stop()` fires no `ended`, so the ring's meter is retired here rather
   // than by its track: a join that fails after publishing would otherwise
   // leave it reading a dead microphone for the rest of the page.
@@ -2664,7 +2777,12 @@ function stopPreflight(preflight) {
   // view then sat frozen on the candidate's last frame for the whole session.
   detachSelfView();
   detachSelfView = () => {};
-  preflight?.userStream?.getTracks?.().forEach((track) => track.stop());
+  preflight?.userStream?.getTracks?.().forEach((track) => {
+    if (track.kind === "audio" && !preserveMicrophone)
+      recordingMicrophoneDeviceId =
+        track.getSettings?.().deviceId || recordingMicrophoneDeviceId;
+    if (!preserveMicrophone || track.kind !== "audio") track.stop();
+  });
 }
 
 function setLocalAudioEnabled(enabled) {
@@ -2674,6 +2792,7 @@ function setLocalAudioEnabled(enabled) {
 }
 
 function stopLocalMedia() {
+  localRecording.finish(nodes.ending);
   stopIntegrityWorker();
   stopPreflight({ userStream: state.localUserStream });
   state.localUserStream = null;
@@ -2781,6 +2900,10 @@ function restoreEndingOverlay() {
 }
 
 function finalizeRecoveryOnPageHide() {
+  localRecording.dispose();
+  if (state.localUserStream)
+    stopPreflight({ userStream: state.localUserStream });
+  state.localUserStream = null;
   if (state.phase === "report_recovery") reportRecovery.finish();
   void state.room?.disconnect?.().catch?.(() => {});
 }
@@ -3636,8 +3759,12 @@ function microphoneSwitch() {
     micEnabled: () => state.micEnabled,
     onHold: (holding) => {
       state.microphoneSwapHolding = holding;
+      // A disconnected swap leaves the recorder on the input LiveKit muted.
+      if (!holding && !state.room && localRecording.needsMicrophone)
+        setLocalAudioEnabled(state.micEnabled);
     },
     onSwitched: (track, reason) => {
+      localRecording.refreshMicrophone();
       // The track the heartbeat, the state poll and the ring read is a new
       // object, so each reader is pointed at it here or it keeps reporting the
       // one that was stopped.
@@ -3670,7 +3797,10 @@ function microphoneSwitch() {
       else if (outcome === "stranded") showInputNote(INPUT_NOTES.stranded);
       else showInputNote(INPUT_NOTES.refused);
       // A stranded switch dropped the input the ring was reading.
-      if (outcome === "stranded") startTurnRing(state.localUserStream);
+      if (outcome === "stranded") {
+        startTurnRing(state.localUserStream);
+        localRecording.refreshMicrophone();
+      }
       // Puts the select back on the input still in use, rather than on the
       // one that was refused.
       void refreshAudioInputs();
@@ -4449,6 +4579,7 @@ function endInterview(reason) {
   const exampleFinished = exampleBoard?.finish();
   state.phase = "ending";
   if (strict) updateRunAvailability();
+  localRecording.finish(nodes.ending);
   // The hint outranks the ending overlay in the stacking order, so a candidate
   // who ends while it is still up would read the report status through it.
   globalThis.clearTimeout(frameworkHintTimer);
@@ -4631,10 +4762,10 @@ async function skipReport() {
     globalThis.clearTimeout(timeout);
     resolveSkipReportAck = null;
   }
-  leaveRoom();
+  await leaveRoom();
 }
 
-function leaveRoom() {
+async function leaveRoom() {
   if (state.downloadingReport) return;
   if (state.phase === "report_recovery") {
     if (state.reportSkipped) {
@@ -4657,6 +4788,7 @@ function leaveRoom() {
   void state.room?.disconnect?.();
   stopAvatar();
   stopLocalMedia();
+  await localRecording.stop();
   window.location.href = "/";
 }
 
@@ -4799,6 +4931,7 @@ function renderReport() {
   });
   mountFinalCodeCopy(nodes.report, currentCode());
   void loadOriginalProblem(nodes.report, problem.page);
+  localRecording.finish(nodes.report);
   mountBehavioralReview(nodes.report, state.transcript.values());
   state.categoryComparisonReady = updateCategoryComparison(state.report);
 }

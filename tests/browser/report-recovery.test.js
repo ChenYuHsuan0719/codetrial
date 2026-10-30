@@ -291,6 +291,7 @@ function pageHarness(phase = "live") {
     },
     stopAvatar: () => events.push("stop-avatar"),
     stopLocalMedia: () => events.push("stop-media"),
+    localRecording: { dispose() {}, stop: async () => {} },
     startEndingClock: () => {},
     stopEndingClock: () => {},
     publish: (topic, payload) => {
@@ -484,6 +485,11 @@ test("terminal room disconnect finalizes recovery before clearing the room", asy
   const playbackRooms = [];
   page.scope.room = page.room;
   page.scope.audioPlayback = { release: (room) => playbackRooms.push(room) };
+  page.scope.preflight = { userStream: { label: "Preflight stream" } };
+  page.scope.localRecording.needsMicrophone = false;
+  const mediaCleanup = [];
+  page.scope.stopPreflight = (media, options) =>
+    mediaCleanup.push([media, options]);
   const disconnect = new Function(
     "scope",
     `with(scope) { return () => { ${body} }; }`,
@@ -491,6 +497,9 @@ test("terminal room disconnect finalizes recovery before clearing the room", asy
   disconnect();
   await settle();
   assert.deepEqual(playbackRooms, [page.room]);
+  assert.deepEqual(mediaCleanup, [
+    [page.scope.preflight, { preserveMicrophone: false }],
+  ]);
   assert.equal(page.scope.state.room, null);
   assert.equal(page.scope.state.connected, false);
   assert.equal(page.scope.state.phase, "report");

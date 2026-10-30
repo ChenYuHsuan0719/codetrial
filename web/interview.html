@@ -74,15 +74,42 @@
              action used most, so it leads; ending the interview sits apart at
              the far end of the row below, where it is not hit by mistake. -->
         <section class="session-dock" aria-label="Interview controls">
-          <button
-            id="yield-turn"
-            class="pill-button turn-button"
-            type="button"
-            title="Alt+Enter / &#8997;Enter"
-            aria-keyshortcuts="Alt+Enter"
-          >
-            Your turn is done
-          </button>
+          <div class="control-row">
+            <button
+              id="yield-turn"
+              class="pill-button turn-button"
+              type="button"
+              title="Alt+Enter / &#8997;Enter"
+              aria-keyshortcuts="Alt+Enter"
+            >
+              Your turn is done
+            </button>
+            <div id="local-recording" class="recording-row" hidden>
+              <button data-local-start class="pill-button" type="button">
+                Start recording
+              </button>
+              <button
+                data-local-stop
+                class="pill-button"
+                type="button"
+                disabled
+                hidden
+              >
+                End recording
+              </button>
+              <span
+                data-local-status
+                class="muted small visually-hidden"
+                role="status"
+              ></span>
+              <a
+                data-local-download
+                aria-label="Download recording (.webm)"
+                hidden
+                >Download</a
+              >
+            </div>
+          </div>
           <div class="control-row">
             <button
               id="mic"
@@ -802,6 +829,15 @@
             <div class="audio-check-actions">
               <button id="audio-check-leave" class="pill-button" type="button">
                 Back to lobby
+              </button>
+              <button
+                id="local-recording-join"
+                class="pill-button"
+                type="button"
+                disabled
+                hidden
+              >
+                Start &amp; record
               </button>
               <button
                 id="audio-check-join"

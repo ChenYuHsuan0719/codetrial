@@ -182,7 +182,7 @@ test("stopping the camera takes the self view down first", () => {
   const connect = functionBody(script, "connect");
   assertIncludesCompact(
     connect.slice(connect.indexOf("} catch (error) {")),
-    "abandonStart(preflight);",
+    "abandonStart(preflight, { preserveMicrophone });",
     "the offline fallback after a failed connect must leave through abandonStart",
   );
   assertIncludesCompact(
@@ -197,7 +197,7 @@ test("stopping the camera takes the self view down first", () => {
   );
   assertIncludesCompact(
     functionBody(script, "abandonStart"),
-    "stopPreflight(preflight);",
+    "stopPreflight(preflight, { preserveMicrophone });",
     "abandonStart must stop the camera through stopPreflight",
   );
   // A join handed to a report stops the camera itself.
