@@ -837,10 +837,7 @@ fn a_pool_says_how_many_projects_it_actually_spreads_over() {
         "{summary}"
     );
     // Rotation order is the point of the line, so it has to be readable in it.
-    assert!(
-        summary.contains("primary=wss://one.livekit.cloud"),
-        "{summary}"
-    );
+    assert!(summary.contains("primary=one.livekit.cloud"), "{summary}");
 
     // The `--config` accident: the environment provider and a discovered file
     // naming one project.
@@ -858,16 +855,57 @@ fn a_pool_says_how_many_projects_it_actually_spreads_over() {
     assert!(warnings[0].contains("bochengC"), "{warnings:?}");
 
     // The summary reaches stderr on every start, so it carries the id and the
-    // URL the browser is handed anyway, and neither credential.
+    // endpoint authority, never userinfo, paths, queries or fragments.
     let (summary, _) = pool_summary(&[Provider {
         id: "primary".to_string(),
-        url: "wss://one.livekit.cloud".to_string(),
+        url: "wss://urluser:urlpassword@one.livekit.cloud:9443/privatepath?token=querycredential#fragmentcredential".to_string(),
         api_key: "APIsentinelkey".to_string(),
         api_secret: "sentinelsecretvalue".to_string(),
         google_api_keys: vec!["googlesentinelkey".to_string()],
     }]);
-    for secret in ["APIsentinelkey", "sentinelsecretvalue", "googlesentinelkey"] {
+    assert!(
+        summary.contains("primary=one.livekit.cloud:9443"),
+        "{summary}"
+    );
+    for secret in [
+        "APIsentinelkey",
+        "sentinelsecretvalue",
+        "googlesentinelkey",
+        "urluser",
+        "urlpassword",
+        "privatepath",
+        "querycredential",
+        "fragmentcredential",
+    ] {
         assert!(!summary.contains(secret), "{secret} leaked into: {summary}");
+    }
+}
+
+/// The authority ends at the first `/`, `?` or `#`, as a URL parser reads it,
+/// so a `@` after one of them belongs to the path, query or fragment and the
+/// summary prints the host the connection would use. An IPv6 host keeps its
+/// brackets.
+#[test]
+fn the_pool_summary_reads_the_authority_the_way_a_url_does() {
+    use codetrial::config::{Provider, pool_summary};
+
+    for (url, shown) in [
+        ("wss://[2001:db8::1]:7880", "[2001:db8::1]:7880"),
+        ("wss://user:pw@[2001:db8::1]/room", "[2001:db8::1]"),
+        ("wss://u:123#x@host", "u:123"),
+        ("wss://host/path?mail=a@b", "host"),
+    ] {
+        let (summary, _) = pool_summary(&[Provider {
+            id: "primary".to_string(),
+            url: url.to_string(),
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+            google_api_keys: vec!["g".to_string()],
+        }]);
+        assert!(
+            summary.contains(&format!("primary={shown}")),
+            "{url} -> {summary}"
+        );
     }
 }
 
@@ -1165,7 +1203,7 @@ fn a_provider_debug_does_not_print_its_secret() {
         "redaction",
         &[(
             "codetrial.env.eu",
-            "LIVEKIT_URL=wss://frankfurt.example\nLIVEKIT_API_KEY=livekit-key\nLIVEKIT_API_SECRET=hunter2\nGOOGLE_API_KEY=gsecret\nGOOGLE_API_KEYS=list-secret-one,list-secret-two\n",
+            "LIVEKIT_URL=wss://urluser:urlpassword@frankfurt.example:9443/privatepath?token=querycredential#fragmentcredential\nLIVEKIT_API_KEY=livekit-key\nLIVEKIT_API_SECRET=hunter2\nGOOGLE_API_KEY=gsecret\nGOOGLE_API_KEYS=list-secret-one,list-secret-two\n",
         )],
     );
     let (providers, _) = codetrial::config::discover_providers(&dir, false);
@@ -1175,15 +1213,27 @@ fn a_provider_debug_does_not_print_its_secret() {
     assert!(!rendered.contains("hunter2"), "{rendered}");
     assert!(!rendered.contains("gsecret"), "{rendered}");
     assert!(!rendered.contains("list-secret"), "{rendered}");
+    for secret in [
+        "urluser",
+        "urlpassword",
+        "privatepath",
+        "querycredential",
+        "fragmentcredential",
+    ] {
+        assert!(
+            !rendered.contains(secret),
+            "URL credential leaked: {rendered}"
+        );
+    }
     assert_eq!(
         providers[0].google_api_keys,
         ["list-secret-one", "list-secret-two"]
     );
 
-    // The id and URL are what makes the line useful, and neither is a
-    // credential. Named against a host that is not the id: this used to look
-    // for "eu" in a line that carried `wss://eu.example`, so it held whether or
-    // not `Debug` printed the id at all.
+    // The id and host make the line useful. Named against a host that is not
+    // the id: this used to look for "eu" in a line that carried
+    // `wss://eu.example`, so it held whether or not `Debug` printed the id at
+    // all.
     assert!(rendered.contains("eu"), "{rendered}");
     assert!(rendered.contains("frankfurt.example"), "{rendered}");
 }

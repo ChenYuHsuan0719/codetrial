@@ -4,7 +4,10 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
 
-use super::{google_api_keys, read_config_file, same_livekit_project, validate_livekit_url};
+use super::{
+    google_api_keys, host_of, livekit_authority, read_config_file, same_livekit_project,
+    validate_livekit_url,
+};
 
 /// The credentials that came from the process environment, or from
 /// `config/codetrial.env.local`. Rooms served by it carry no provider segment,
@@ -44,7 +47,7 @@ impl fmt::Debug for Provider {
         formatter
             .debug_struct("Provider")
             .field("id", &self.id)
-            .field("url", &self.url)
+            .field("host", &host_of(livekit_authority(&self.url)))
             .field("api_key", &"<redacted>")
             .field("api_secret", &"<redacted>")
             .field("google_api_keys", &"<redacted>")
@@ -226,7 +229,7 @@ pub fn order_providers(providers: &mut Vec<Provider>, order: &str) -> Vec<String
 pub fn pool_summary(providers: &[Provider]) -> (String, Vec<String>) {
     let rotation = providers
         .iter()
-        .map(|provider| format!("{}={}", provider.id, provider.url))
+        .map(|provider| format!("{}={}", provider.id, livekit_authority(&provider.url)))
         .collect::<Vec<_>>()
         .join(", ");
 
